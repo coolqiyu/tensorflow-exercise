@@ -1,4 +1,6 @@
-import Example1
+import Example
+import Mnist.TFMnist as TFMnist
 
 if __name__ == '__main__':
-    Example1.Example1()
+    # Example.Example.Example4()
+    TFMnist.mnist_train()
