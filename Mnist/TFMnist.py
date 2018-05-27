@@ -172,7 +172,7 @@ def tensorboard():
             batch_xs, batch_ys = mnist.train.next_batch(100)
             summary, _ = sess.run([merged, train_step], feed_dict={x: batch_xs, y_: batch_ys})
             train_writer.add_summary(summary, i)
-        train_writer.close()啊【
+        train_writer.close()
 
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
