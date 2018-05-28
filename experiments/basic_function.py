@@ -2,7 +2,7 @@
 # ===================================================
 
 import tensorflow as tf
-
+import numpy as np
 
 def myslice():
     input = tf.constant([[[1, 1, 1], [2, 2, 2]],
@@ -26,6 +26,9 @@ def my_decode_raw():
 def my_transpose():
     input= tf.constant([[1, 2, 3], [4, 5, 6]])
     # y[i,j,k,...,s,t,u] == conj(x[perm[i], perm[j], perm[k],...,perm[s], perm[t], perm[u]])
+    # input[i][j][k] => output的第0维就是perm[0]的结果，第1维就是perm[1]的结果
+    # 比如perm=[2][0][1] 则input[i][j][k]=>input的第0维变成output的第perm[0]=2维
+    # output[k][i][j]
     result = tf.transpose(input, [1,0])
     input1 = tf.constant([[[1, 2, 3], [4, 5, 6]],
                         [[7, 8, 9], [10, 11, 12]]])
@@ -33,8 +36,21 @@ def my_transpose():
     with tf.Session() as sess:
         print(sess.run(result))
         print(sess.run(result1))
+"""
+用numpy实现
+"""
+def my_transpose1(input, output, perm):
+    for i in range(2):
+        for j in range(2):
+            for k in range(3):
+                output[j][i][k] = input[i][j][k]
 
 if __name__ == "__main__":
     # myslice()
     #my_decode_raw()
     my_transpose()
+    output = np.zeros((2,2,3), np.uint32)
+
+    my_transpose1([[[1, 2, 3], [4, 5, 6]],
+                   [[7, 8, 9], [10, 11, 12]]], output, 0)
+    print(output)

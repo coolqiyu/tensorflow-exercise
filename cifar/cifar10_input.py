@@ -14,7 +14,10 @@
 # ==============================================================================
 
 """Routine for decoding the CIFAR-10 binary file format.
-读取本地CIFAR数据集文件
+read_cifar10: 读取本地CIFAR数据集文件
+_generate_image_and_label_batch: 对输入的顺序随机化并生成batch
+distorted_inputs：对输入进行各种变形
+inputs：读取评估/测试数据集
 """
 
 from __future__ import absolute_import
@@ -93,7 +96,7 @@ def read_cifar10(filename_queue):
   depth_major = tf.reshape(tf.slice(record_bytes, [label_bytes], [image_bytes]),
                            [result.depth, result.height, result.width])
 
-  # transpose 转置阵
+  # transpose 移动矩阵，返回输入图像
   result.uint8image = tf.transpose(depth_major, [1, 2, 0])
   return result
 
@@ -101,6 +104,7 @@ def read_cifar10(filename_queue):
 def _generate_image_and_label_batch(image, label, min_queue_examples,
                                     batch_size):
   """Construct a queued batch of images and labels.
+  对输入的image和标签label进行随机化组成batch
   Args:
     image: 3-D Tensor of [height, width, 3] of type.float32.
     label: 1-D Tensor of type.int32
@@ -111,11 +115,26 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
     images: Images. 4D tensor of [batch_size, height, width, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
   """
-
+  num_preprocess_threads = 16
+  # tf.train.shuffle_batch(tensor_list, batch_size, capacity, min_after_dequeue, num_threads=1, seed=None, enqueue_many=False, shapes=None, name=None)
+  # 通过对tensor_list随机洗牌来生成batch，最后输出[batch_size, x, y, z]
+  # [image, label]原始数据，batch_size：batch大小；num_threds：enqueue tensor_list的线程数；capacity：queue中最多有多少元素
+  # min_after_dequeue: 在dequeue后queue中最少有多少元素，以保证混合的程度
+  images, label_batch = tf.train.shuffle_batch(
+    [image, label],
+    batch_size=batch_size,
+    num_threads=num_preprocess_threads,
+    capacity=min_queue_examples + 3 *batch_size,
+    min_after_dequeue=min_queue_examples
+  )
+  # 可视化
+  tf.summary.image('images', images)
+  return images, tf.reshape(label_batch, [batch_size])
 
 
 def distorted_inputs(data_dir, batch_size):
-  """Construct distorted input for CIFAR training using the Reader ops.
+  """Construct distorted input for CIFAR training using the Reader ops
+  打乱/随机变形输入图像
   Args:
     data_dir: Path to the CIFAR-10 data directory.
     batch_size: Number of images per batch.
@@ -123,11 +142,56 @@ def distorted_inputs(data_dir, batch_size):
     images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
   """
+  filenames = [os.path.join(data_dir, 'data_batch_{i}.bin'.format({"i": i}))
+               for i in xrange(1, 6)]
+  for f in filenames:
+    if not gfile.Exists(f):
+      raise ValueError('Failed to find file: ' + f)
+  # tf.train.string_input_producer(string_tensor, num_epochs=None, shuffle=True, seed=None, capacity=32, name=None)
+  # 以string_tensor为基础生成一个string_queue
+  # shuffle为true表示在一个epoch中是否洗牌
+  filenames_queue = tf.train.string_input_producer(filenames)
 
+  # 调用上面的读取操作读取输入数据
+  read_input = read_cifar10(filenames_queue)
+  reshaped_image = tf.cast(read_input.uint8image, tf.float32)
+  height = IMAGE_SIZE
+  width = IMAGE_SIZE
 
+  # tf.image.random_crop(image, size, seed=None, name=None)
+  # 把image中每个随机裁剪[height, width]大小
+  distorted_image = tf.image.random_crop(reshaped_image, [height, width])
+
+  """
+  下面这些是对图像的随机变形
+  """
+  # tf.image.random_flip_left_right(image, seed=None)
+  # 对image进行从左到右随机翻转
+  distorted_image = tf.image.random_flip_left_right(distorted_image)
+  #tf.image.random_brightness(image, max_delta, seed=None)
+  #随机调整image的明亮程度
+  distorted_image = tf.image.random_brightness(distorted_image, max_delta=63)
+  #tf.image.random_contrast(image, lower, upper, seed=None)
+  # 调整图像的对比强度
+  distorted_image = tf.image.random_contrast(distorted_image,
+                                             lower=0.2, upper=1.8)
+  #tf.image.per_image_whitening(image)
+  #对image线性变换，使得平均值为0，且归一化
+  float_image = tf.image.per_image_whitening(distorted_image)
+
+  min_fraction_of_examples_in_queue = 0.4
+  min_queue_examples = int(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN *
+                           min_fraction_of_examples_in_queue)
+  print('Filling queue with %d CIFAR images before starting to train. '
+        'This will take a few minutes.' % min_queue_examples)
+
+  # 产生一个batch，通过构建一个example队列
+  return _generate_image_and_label_batch(float_image, read_input.label,
+                                         min_queue_examples, batch_size)
 
 def inputs(eval_data, data_dir, batch_size):
   """Construct input for CIFAR evaluation using the Reader ops.
+  构建输入（评估/测试）数据集：读文件，图像resize，归一化，构成batch
   Args:
     eval_data: bool, indicating if one should use the train or eval data set.
     data_dir: Path to the CIFAR-10 data directory.
@@ -136,3 +200,35 @@ def inputs(eval_data, data_dir, batch_size):
     images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
   """
+  # eval_data：表示是否用评估数据集还是测试数据集
+  if not eval_data:
+    filenames = [os.path.join(data_dir, 'data_batch_{i}.bin'.format({"i": i}))
+                 for i in xrange(1, 6)]
+    num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
+  else:
+    filenames = [os.path.join(data_dir, 'test_batch.bin')]
+    num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
+
+  # 判断文件是否都存在
+  for f in filenames:
+    if not gfile.Exists(f):
+      raise ValueError('Failed to find file: ' + f)
+
+  filename_queue = tf.train.string_input_producer(filenames)
+  read_input = read_cifar10(filename_queue)
+  reshaped_image = tf.cast(read_input.uint8image, tf.float32)
+
+  height = IMAGE_SIZE
+  width = IMAGE_SIZE
+
+  #tf.image.resize_image_with_crop_or_pad(image, target_height, target_width)
+  #对图像进行裁剪或填充，使得达到目标大小
+  resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image,
+                                                         width, height)
+  float_image = tf.image.per_image_whitening(resized_image)
+  min_fraction_of_examples_in_queue = 0.4
+  min_queue_examples = int(num_examples_per_epoch *
+                           min_fraction_of_examples_in_queue)
+
+  return _generate_image_and_label_batch(float_image, read_input.label,
+                                         min_queue_examples, batch_size)
