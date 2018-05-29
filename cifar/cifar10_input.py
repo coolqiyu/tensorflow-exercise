@@ -16,7 +16,7 @@
 """Routine for decoding the CIFAR-10 binary file format.
 read_cifar10: 读取本地CIFAR数据集文件
 _generate_image_and_label_batch: 对输入的顺序随机化并生成batch
-distorted_inputs：对输入进行各种变形
+distorted_inputs：对输入数据集进行各种变形后输出
 inputs：读取评估/测试数据集
 """
 
@@ -142,7 +142,7 @@ def distorted_inputs(data_dir, batch_size):
     images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
   """
-  filenames = [os.path.join(data_dir, 'data_batch_{i}.bin'.format({"i": i}))
+  filenames = [os.path.join(data_dir, 'data_batch_{i}.bin'.format(i=i))
                for i in xrange(1, 6)]
   for f in filenames:
     if not gfile.Exists(f):

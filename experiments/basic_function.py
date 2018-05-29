@@ -54,3 +54,6 @@ if __name__ == "__main__":
     my_transpose1([[[1, 2, 3], [4, 5, 6]],
                    [[7, 8, 9], [10, 11, 12]]], output, 0)
     print(output)
+
+# tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
+#  tf.concat(1, [indices, sparse_labels])
