@@ -57,3 +57,5 @@ if __name__ == "__main__":
 
 # tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
 #  tf.concat(1, [indices, sparse_labels])
+# tf.train.ExponentialMovingAverage
+# exponential_decay 学习率衰减

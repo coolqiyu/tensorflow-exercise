@@ -307,22 +307,114 @@ def _add_loss_summaries(total_loss):
   Returns:
     loss_averages_op: op for generating moving averages of losses.
   """
+  # 指数加权移动平均值ExponentialMovingAverage类
+  # def __init__(self, decay, num_updates=None, zero_debias=False, name="ExponentialMovingAverage")
+  # decay：下降率 num_updates：要更新的次数
+  loss_average = tf.train.ExponentialMovingAverage(0.9, name='avg')
+  losses = tf.get_collection('losses')
+  # apply: 增加训练变量的浅拷贝，并增加保存移动平均值的操作。这个操作一般在每一次训练步后执行
+  loss_average = loss_average.apply(losses + [total_loss])
 
-
+  # 为独立的loss和loss平均值可视化
+  for l in losses + [total_loss]:
+      tf.summary.scalar(l.op.name + ' (raw)', l)
+      # average返回一个变量对应的shadow变量
+      tf.summary.scalar(l.op.name, loss_average.average(l))
 
 def train(total_loss, global_step):
   """Train CIFAR-10 model.
+  训练模型
   Create an optimizer and apply to all trainable variables. Add moving
   average for all trainable variables.
   Args:
     total_loss: Total loss from loss().
     global_step: Integer Variable counting the number of training steps
-      processed.
+      processed.当前是第几步？
   Returns:
     train_op: op for training.
   """
+  num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size
+  decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
 
+  # 学习率衰减：decayed_learning_rate = learning_rate *
+  #                                     decay_rate ^ (global_step / decay_steps)
+  lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,
+                                  global_step,
+                                  decay_steps,
+                                  LEARNING_RATE_DECAY_FACTOR,
+                                  staircase=True)
+
+  tf.summary.scalar('learning_rate', lr)
+
+  loss_averages_op = _add_loss_summaries(total_loss)
+
+  # 控制依赖，当参数执行完成，才执行下面的
+  # 为什么这里要做这个控制
+  with tf.control_dependencies([loss_averages_op]):
+      opt = tf.train.GradientDescentOptimizer(lr)
+      # tf.train.Optimizer.compute_gradients(loss, var_list=None, gate_gradients=1)
+      # 为total_loss计算gradient
+      grads = opt.compute_gradients(total_loss)
+
+  apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+
+  # 可视化
+  for var in tf.trainable_variables():
+      tf.summary.histogram(var.op.name, var)
+  for grad, var in grads:
+    if grad:
+      tf.summary.histogram(var.op.name + '/gradients', grad)
+
+  variable_averages = tf.train.ExponentialMovingAverage(
+      MOVING_AVERAGE_DECAY, global_step)
+  variables_averages_op = variable_averages.apply(tf.trainable_variables())
+
+  with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
+    train_op = tf.no_op(name='train')#no_op什么也不做？
+
+  return train_op
 
 
 def maybe_download_and_extract():
-  """Download and extract the tarball from Alex's website."""
+  """Download and extract the tarball from Alex's website.
+     下载Alex网络 为什么？
+  """
+  dest_directory = FLAGS.data_dir
+  if not os.path.exists(dest_directory):
+      os.mkdir(dest_directory)
+  filename = DATA_URL.split('/')[-1]
+  filepath = os.path.join(dest_directory, filename)
+  if not os.path.exists(filepath):
+      def _progress(count, block_size, total_size):
+          sys.stdout.write('\r>> Downloading %s %.1f%%' % (filename,
+                                                           float(count * block_size) / float(total_size) * 100.0))
+          sys.stdout.flush()
+
+      filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath,
+                                               reporthook=_progress)
+      print()
+      statinfo = os.stat(filepath)
+      print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+      tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

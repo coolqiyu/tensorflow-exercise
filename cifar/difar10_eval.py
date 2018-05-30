@@ -9,11 +9,13 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+# See the License for the specific language governing permissions and/
 # limitations under the License.
 # ==============================================================================
 
-"""Evaluation for CIFAR-10.评估预测能力
+"""Evaluation for CIFAR-10.
+恢复原来的模型，测试模型在test数据集的正确率
+主要是：checkpoint, saver
 Accuracy:
 cifar10_train.py achieves 83.0% accuracy after 100K steps (256 epochs
 of data) as judged by cifar10_eval.py.
@@ -40,7 +42,7 @@ import numpy as np
 import tensorflow as tf
 
 #from tensorflow.models.image.cifar10 import cifar10
-from . import cifar100
+from . import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -69,17 +71,15 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
   with tf.Session() as sess:
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
-      # Restores from checkpoint
+      # 从checkpoint恢复
       saver.restore(sess, ckpt.model_checkpoint_path)
-      # Assuming model_checkpoint_path looks something like:
-      #   /my-favorite-path/cifar10_train/model.ckpt-0,
-      # extract global_step from it.
+      #  model_checkpoint_path类似于/my-favorite-path/cifar10_train/model.ckpt-0
       global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
     else:
       print('No checkpoint file found')
       return
 
-    # Start the queue runners.
+    # 开始 queue runners.
     coord = tf.train.Coordinator()
     try:
       threads = []
@@ -88,7 +88,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
                                          start=True))
 
       num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
-      true_count = 0  # Counts the number of correct predictions.
+      true_count = 0  # 统计正确的预测个数
       total_sample_count = num_iter * FLAGS.batch_size
       step = 0
       while step < num_iter and not coord.should_stop():
@@ -96,7 +96,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
         true_count += np.sum(predictions)
         step += 1
 
-      # Compute precision @ 1.
+      # 计算精度
       precision = true_count / total_sample_count
       print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
 
@@ -114,30 +114,30 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
 def evaluate():
   """Eval CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-    # Get images and labels for CIFAR-10.
+    # 获取test数据集
     eval_data = FLAGS.eval_data == 'test'
-    images, labels = cifar100.inputs(eval_data=eval_data)
+    images, labels = cifar10.inputs(eval_data=eval_data)
 
-    # Build a Graph that computes the logits predictions from the
-    # inference model.
-    logits = cifar100.inference(images)
+    # 构建图？那参数呢？
+    logits = cifar10.inference(images)
 
-    # Calculate predictions.
+    # tf.nn.in_top_k(predictions, targets, k, name=None)
+    # target是否在prediction的top_k中
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
-    # Restore the moving average version of the learned variables for eval.
+    # 恢复学习好的参数
     variable_averages = tf.train.ExponentialMovingAverage(
-        cifar100.MOVING_AVERAGE_DECAY)
+        cifar10.MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
     saver = tf.train.Saver(variables_to_restore)
 
-    # Build the summary operation based on the TF collection of Summaries.
+    # 可视化
     summary_op = tf.merge_all_summaries()
 
     graph_def = tf.get_default_graph().as_graph_def()
     summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir,
                                             graph_def=graph_def)
-
+    # 遍历评估
     while True:
       eval_once(saver, summary_writer, top_k_op, summary_op)
       if FLAGS.run_once:
@@ -146,7 +146,7 @@ def evaluate():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-  cifar100.maybe_download_and_extract()
+  cifar10.maybe_download_and_extract()
   if gfile.Exists(FLAGS.eval_dir):
     gfile.DeleteRecursively(FLAGS.eval_dir)
   gfile.MakeDirs(FLAGS.eval_dir)
