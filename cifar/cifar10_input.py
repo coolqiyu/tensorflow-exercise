@@ -45,6 +45,7 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
 
 def read_cifar10(filename_queue):
   """Reads and parses examples from CIFAR10 data files.
+  从一系列文件中读取数据，并返回一条数据
   Recommendation: if you want N-way read parallelism, call this function
   N times.  This will give you N independent Readers reading different
   files & positions within those files, which will give better mixing of
@@ -80,10 +81,10 @@ def read_cifar10(filename_queue):
   # 构造函数：__init__(record_bytes, header_bytes=None, footer_bytes=None, name=None)
   #         header_bytes头部数据大小，footer_bytes底部数据大小
   reader = tf.FixedLengthRecordReader(record_bytes=record_bytes)
-  # read每次读一条记录；这个会从queue中移出一个文件
+  # read每次读一条记录（一行）
   result.key, value = reader.read(filename_queue)
 
-  # 把字节串value转换成uint8类型的向量
+  # 把二进制的数据集转换成uint8类型的向量
   # record_bytes =[label 第一个value ... 第height*width*depth-1个value]
   record_bytes = tf.decode_raw(value, tf.uint8)
 
@@ -92,11 +93,11 @@ def read_cifar10(filename_queue):
   # 设置label
   result.label = tf.cast(tf.slice(record_bytes, [0], [label_bytes]), tf.int32)
 
-  # 把记录转换成其它shape，NHW格式，变成3通道的结果
+  # 把图像数据转换成其它shape，NHW格式，变成3通道的结果
   depth_major = tf.reshape(tf.slice(record_bytes, [label_bytes], [image_bytes]),
                            [result.depth, result.height, result.width])
 
-  # transpose 移动矩阵，返回输入图像
+  # transpose0 转换数据格式，HWN
   result.uint8image = tf.transpose(depth_major, [1, 2, 0])
   return result
 
@@ -135,6 +136,8 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
 def distorted_inputs(data_dir, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops
   打乱/随机变形输入图像
+  输入图像的数据布局：包含5个文件data_batch_1...data_batch_5
+  文件的每一行：<1byte x label><1024byte x red channel><1024byte x green channel><1024byte x blue channel>
   Args:
     data_dir: Path to the CIFAR-10 data directory.
     batch_size: Number of images per batch.
@@ -150,21 +153,21 @@ def distorted_inputs(data_dir, batch_size):
   # tf.train.string_input_producer(string_tensor, num_epochs=None, shuffle=True, seed=None, capacity=32, name=None)
   # 以string_tensor为基础生成一个string_queue
   # shuffle为true表示在一个epoch中是否洗牌
+  # filenames_queue所有train数据集文件名
   filenames_queue = tf.train.string_input_producer(filenames)
 
-  # 调用上面的读取操作读取输入数据
+  # 调用上面的读取操作读取输入数据，格式HWN
   read_input = read_cifar10(filenames_queue)
   reshaped_image = tf.cast(read_input.uint8image, tf.float32)
   height = IMAGE_SIZE
   width = IMAGE_SIZE
 
+  """
+    下面这些是对图像的随机变形
+  """
   # tf.image.random_crop(image, size, seed=None, name=None)
   # 把image中每个随机裁剪[height, width]大小
   distorted_image = tf.image.random_crop(reshaped_image, [height, width])
-
-  """
-  下面这些是对图像的随机变形
-  """
   # tf.image.random_flip_left_right(image, seed=None)
   # 对image进行从左到右随机翻转
   distorted_image = tf.image.random_flip_left_right(distorted_image)
@@ -179,6 +182,7 @@ def distorted_inputs(data_dir, batch_size):
   #对image线性变换，使得平均值为0，且归一化
   float_image = tf.image.per_image_whitening(distorted_image)
 
+  # queue中填充的图片数量是总的0.4
   min_fraction_of_examples_in_queue = 0.4
   min_queue_examples = int(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN *
                            min_fraction_of_examples_in_queue)

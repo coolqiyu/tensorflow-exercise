@@ -47,7 +47,9 @@ import tensorflow as tf
 from . import cifar10
 
 FLAGS = tf.app.flags.FLAGS
-
+# 用于支持接受命令行传递参数，相当于接受argv
+# 第一个是参数名称，第二个参数是默认值，第三个是参数描述
+# tf.app.flags
 tf.app.flags.DEFINE_string('train_dir', 'cifar10_train/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
@@ -59,6 +61,9 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 
 def train():
   """Train CIFAR-10 for a number of steps."""
+  # 为什么要写这行？多线程时每个线程有一个图？
+  # the Graph.as_default() context manager, which overrides the current default graph for the lifetime of the context:
+  # This class is not thread-safe for graph construction. All operations should be created from a single thread, or external synchronization must be provided. Unless otherwise specified, all methods are not thread-safe.
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
 
@@ -73,7 +78,7 @@ def train():
 
     train_op = cifar10.train(loss, global_step)
 
-    # 保存变量，就是所有训练出来的参数？
+    # 创建一个saver，第一个参数是要保存的参数列表
     saver = tf.train.Saver(tf.all_variables)
 
     summary_op = tf.merge_all_summaries()
@@ -85,7 +90,7 @@ def train():
       log_device_placement=FLAGS.log_device_placement))
     sess.run(init)
 
-    # 开始queue runner，这个是什么？
+    # 开始图中所有的queue runners，sess表示用来执行queue操作的session
     tf.train.start_queue_runners(sess=sess)
 
     # 可视化的写
@@ -101,6 +106,7 @@ def train():
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
+      # 输出辅助信息
       # 每10步打印执行的信息，时间、loss
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size
@@ -124,6 +130,7 @@ def train():
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
+  # 对训练的目标目录进行判断，有则删，五则新建
   if gfile.Exists(FLAGS.train_dir):
     gfile.DeleteRecursively(FLAGS.train_dir)
   gfile.MakeDirs(FLAGS.train_dir)
