@@ -44,7 +44,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 #from tensorflow.models.image.cifar10 import cifar10
-from . import cifar10
+from cifar import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 # 用于支持接受命令行传递参数，相当于接受argv
@@ -122,7 +122,7 @@ def train():
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
 
-      # 每1000步保存数据 saver？
+      # 每1000步保存数据
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)

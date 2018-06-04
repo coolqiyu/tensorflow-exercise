@@ -166,8 +166,9 @@ def distorted_inputs(data_dir, batch_size):
     下面这些是对图像的随机变形
   """
   # tf.image.random_crop(image, size, seed=None, name=None)
+  # tf.random_crop() 现在用这个，要把第三维加上
   # 把image中每个随机裁剪[height, width]大小
-  distorted_image = tf.image.random_crop(reshaped_image, [height, width])
+  distorted_image = tf.random_crop(reshaped_image, [height, width, 3])
   # tf.image.random_flip_left_right(image, seed=None)
   # 对image进行从左到右随机翻转
   distorted_image = tf.image.random_flip_left_right(distorted_image)
@@ -180,7 +181,8 @@ def distorted_inputs(data_dir, batch_size):
                                              lower=0.2, upper=1.8)
   #tf.image.per_image_whitening(image)
   #对image线性变换，使得平均值为0，且归一化
-  float_image = tf.image.per_image_whitening(distorted_image)
+  # 更换成per_image_standardization
+  float_image = tf.image.per.per_image_standardization(distorted_image)
 
   # queue中填充的图片数量是总的0.4
   min_fraction_of_examples_in_queue = 0.4

@@ -103,14 +103,43 @@ def my_shuffle_batch():
 
 
 def my_concat():
+    """
+    concate把某一维拼接
+    :return:
+    """
     t1 = [[1, 2, 3], [4, 5, 6]]
     t2 = [[7, 8, 9], [10, 11, 12]]
+    t3 = [[1], [2], [3]]
+    t4 = [[4], [5], [6]]
     a = tf.concat([t1, t2], 0)  # [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
     b = tf.concat([t1, t2], 1)  # [[1, 2, 3, 7, 8, 9], [4, 5, 6, 10, 11, 12]]
-
+    c = tf.concat([t3, t4], 0)
+    d = tf.concat([t3, t4], 1)
     with tf.Session() as sess:
         print(sess.run(a))
         print(sess.run(b))
+        print(sess.run(c))
+        print(sess.run(d))
+
+
+def my_sparse_to_dense():
+    """
+    def sparse_to_dense(sparse_indices,
+                       output_shape,
+                       sparse_values,
+                       default_value=0,
+                       validate_indices=True,
+                       name=None):
+    将sparse_indices扩展成一个更大的tensor(output_shape)，dense中与sparse_indices标识相同的位置置为sparse_value，其他的为默认值
+    :return:
+    """
+    data = [i for i in range(10)]
+    indices = tf.reshape(data, [10, 1])
+    labels = tf.concat([indices, indices], 1)
+
+    dense = tf.sparse_to_dense(labels, [10, 10], 1.0, 0.0)
+    with tf.Session() as sess:
+        print(sess.run(dense))
 
 
 if __name__ == "__main__":
@@ -133,9 +162,14 @@ if __name__ == "__main__":
     # all_variables()
     #b my_reshape()
     # my_shuffle_batch()
-    my_concat()
+    # my_concat()
+    # my_sparse_to_dense()
+    indices = tf.reshape([i for i in range(128)], [128, 1])
+    indices2 = tf.reshape([i for i in range(128)], [128, 1])
+    print(tf.concat(1, [indices, indices2]))
 
 # tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
 #  tf.concat(1, [indices, sparse_labels])
 # tf.train.ExponentialMovingAverage
 # exponential_decay 学习率衰减
+# softmax_cross_entropy_with_logits这个！

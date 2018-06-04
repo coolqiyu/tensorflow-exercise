@@ -118,7 +118,7 @@ def evaluate():
     eval_data = FLAGS.eval_data == 'test'
     images, labels = cifar10.inputs(eval_data=eval_data)
 
-    # 构建图？那参数呢？
+    # 构建图
     logits = cifar10.inference(images)
 
     # tf.nn.in_top_k(predictions, targets, k, name=None)
@@ -128,6 +128,7 @@ def evaluate():
     # 恢复学习好的参数
     variable_averages = tf.train.ExponentialMovingAverage(
         cifar10.MOVING_AVERAGE_DECAY)
+    # variables_to_restore返回一个名字和变量的map
     variables_to_restore = variable_averages.variables_to_restore()
     saver = tf.train.Saver(variables_to_restore)
 

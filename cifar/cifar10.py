@@ -1,12 +1,7 @@
-"""
-http://www.cs.toronto.edu/~kriz/cifar.html
-CIFAR-10数据集：60000 32*32 彩色图，分成10类，每类6000个图。分成50000 train图，10000 test图
-数据集文件结构(python)：
-    data_batch1~data_batch_5为train图
-    test_batch为test图
-    每个batch文件：10000x3072 每行一个图，32*32*3 红-绿-蓝顺序
-    batches.meta.txt：ASCII文件把数字标签(0-9)映射成有意义的类型名称
-"""
+# pylint: disable=missing-docstring
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 # Copyright 2015 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +16,15 @@ CIFAR-10数据集：60000 32*32 彩色图，分成10类，每类6000个图。分
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+"""
+http://www.cs.toronto.edu/~kriz/cifar.html
+CIFAR-10数据集：60000 32*32 彩色图，分成10类，每类6000个图。分成50000 train图，10000 test图
+数据集文件结构(python)：
+    data_batch1~data_batch_5为train图
+    test_batch为test图
+    每个batch文件：10000x3072 每行一个图，32*32*3 红-绿-蓝顺序
+    batches.meta.txt：ASCII文件把数字标签(0-9)映射成有意义的类型名称
+"""
 """Builds the CIFAR-10 network.
 构建网络
 Summary of available functions:
@@ -35,10 +38,6 @@ Summary of available functions:
  # Create a graph to run one step of training with respect to the loss.
  train_op = train(loss, global_step)
 """
-# pylint: disable=missing-docstring
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import gzip
 import os
@@ -126,7 +125,8 @@ def _activation_summary(x):
   Returns:
     nothing
   """
-  tensor_name = re.sub('%_[0-9]*/' %TOWER_NAME, '', x.op.name)
+  # 这个有问题，要把%_改成%s
+  tensor_name = re.sub('%s[0-9]*/' % TOWER_NAME, '', x.op.name)
   tf.summary.histogram(tensor_name + '/activations', x)
   tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
@@ -149,7 +149,7 @@ def _variable_on_cpu(name, shape, initializer):
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
   """Helper to create an initialized Variable with weight decay.
-  为什么要做这个？add_to_collection是什么意义？
+  为什么要做这个？add_to_collection：把weight_decay添加到全局变量losses中
   Note that the Variable is initialized with a truncated normal distribution.
   A weight decay is added only if one is specified.
   Args:
@@ -231,7 +231,7 @@ def inference(images):
 
 
   # local3
-  with tf.Variable_scope('local3') as scope:
+  with tf.variable_scope('local3') as scope:
       dim = 1
       # shape第一个值是batch_size，从[1:]获取一个图像现在有多少个参数表示
       for d in pool2.get_shape()[1:].as_list():
@@ -278,27 +278,32 @@ def loss(logits, labels):
   """
   # 对label进行变形，以便后面和logits做交叉熵计算
   sparse_labels = tf.reshape(labels, [FLAGS.batch_size, 1])
-  # 生成[0 1 ... batch_size-1]，后面作为sparse_labels的标签
-  indices = tf.reshape(range(FLAGS.batch_size), [FLAGS.batch_size, 1])
+  # 生成[[0] [1] ... [batch_size-1]]，后面作为sparse_labels的标签
+  # range(FLAGS.batch_size)这个返回的值不是一个列表
+  indices = tf.reshape([i for i in range(FLAGS.batch_size)], [FLAGS.batch_size, 1])
   # tf.concat(concat_dim, values, name='concat')
   # 把values中的tensor在第dim维进行合并，结果为 [[1 label1],[2 label2]]
+  # 这个有问题，参数应该反过来
   concated = tf.concat(1, [indices, sparse_labels])
-  # 这个操作有什么用？转换成one-shot？
+  # 这个操作把concated转换成one-shot。dense_labels中的每一行应该只有一个值为1.0，表示该图属于某一类
   dense_labels = tf.sparse_to_dense(concated,
                                     [FLAGS.batch_size, NUM_CLASSES],
                                     1.0, 0.0)
+  tf.shape()
   # 交叉熵
+  # 这个有问题需要把参数写一下，顺序不太对
   cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-      logits, dense_labels, name='cross_entropy_per_example')
+      logits=logits, labels=dense_labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean)
 
-  # add_n，对所有l2 loss进行求和
+  # add_n，对所有l2 loss以及cross_entropy_mean进行求和
   return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 
 def _add_loss_summaries(total_loss):
   """Add summaries for losses in CIFAR-10 model.
+  为所有losses生成指数移动平均值，并且添加可视化summary
   Generates moving average for all losses and associated summaries for
   visualizing the performance of the network.
   Args:
@@ -311,8 +316,6 @@ def _add_loss_summaries(total_loss):
   # decay：下降率 num_updates：要更新的次数
   loss_average = tf.train.ExponentialMovingAverage(0.9, name='avg')
   losses = tf.get_collection('losses')
-  # apply: 增加训练变量的浅拷贝，并增加保存移动平均值的操作。这个操作一般在每一次训练步后执行
-  loss_average = loss_average.apply(losses + [total_loss])
 
   # 为独立的loss和loss平均值可视化
   for l in losses + [total_loss]:
@@ -320,15 +323,20 @@ def _add_loss_summaries(total_loss):
       # average返回一个变量对应的shadow变量
       tf.summary.scalar(l.op.name, loss_average.average(l))
 
+  # apply: 增加训练变量的浅拷贝，并增加保存移动平均值的操作。这个操作一般在每一次训练步后执行
+  # 这个有问题：要放到for下面，不然loss_average类型就变了
+  loss_average = loss_average.apply(losses + [total_loss])
+  
+
 def train(total_loss, global_step):
   """Train CIFAR-10 model.
-  训练模型
+  设置优化方法
   Create an optimizer and apply to all trainable variables. Add moving
   average for all trainable variables.
   Args:
     total_loss: Total loss from loss().
     global_step: Integer Variable counting the number of training steps
-      processed.当前是第几步？
+      processed.当前是第几步
   Returns:
     train_op: op for training.
   """
@@ -347,14 +355,13 @@ def train(total_loss, global_step):
 
   loss_averages_op = _add_loss_summaries(total_loss)
 
-  # 控制依赖，当参数执行完成，才执行下面的
-  # 为什么这里要做这个控制
+  # 梯度下降算法：计算梯度值，应用梯度值更新变量
   with tf.control_dependencies([loss_averages_op]):
       opt = tf.train.GradientDescentOptimizer(lr)
       # tf.train.Optimizer.compute_gradients(loss, var_list=None, gate_gradients=1)
-      # 为total_loss计算gradient
+      # compute_gradients：minimize的第一部分。返回一系列(gradient, variable)，gradient是variable的梯度
       grads = opt.compute_gradients(total_loss)
-
+  # apply_gradients：minimize的第二部分，把gradient应用到各变量
   apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
   # 可视化
@@ -364,8 +371,10 @@ def train(total_loss, global_step):
     if grad:
       tf.summary.histogram(var.op.name + '/gradients', grad)
 
+  # ExponentialMovingAverage类保存变量的指数加权平均值
   variable_averages = tf.train.ExponentialMovingAverage(
       MOVING_AVERAGE_DECAY, global_step)
+  # apply(var_list) 为var_list创建备份，且增加保存指数加权平均值的操作。这个一般在一次训练结束后执行
   variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
