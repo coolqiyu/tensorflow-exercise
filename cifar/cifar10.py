@@ -128,6 +128,7 @@ def _activation_summary(x):
   # 这个有问题，要把%_改成%s
   tensor_name = re.sub('%s[0-9]*/' % TOWER_NAME, '', x.op.name)
   tf.summary.histogram(tensor_name + '/activations', x)
+  # zero_fraction 返回x中0的比例
   tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 
@@ -229,7 +230,6 @@ def inference(images):
                              strides=[1, 2, 2, 1], padding='SAME', name='pool2')
       # = image.height/4 x image.width/4 x 64
 
-
   # local3
   with tf.variable_scope('local3') as scope:
       dim = 1
@@ -317,16 +317,18 @@ def _add_loss_summaries(total_loss):
   loss_average = tf.train.ExponentialMovingAverage(0.9, name='avg')
   losses = tf.get_collection('losses')
 
+  # apply: 增加训练变量的浅拷贝，并增加保存移动平均值的操作。这个操作一般在每一次训练步后执行
+  # 这个有问题：apply返回的是一个操作，不能覆盖loss_average
+  loss_average_op = loss_average.apply(losses + [total_loss])
+
   # 为独立的loss和loss平均值可视化
   for l in losses + [total_loss]:
       tf.summary.scalar(l.op.name + ' (raw)', l)
       # average返回一个变量对应的shadow变量
       tf.summary.scalar(l.op.name, loss_average.average(l))
 
-  # apply: 增加训练变量的浅拷贝，并增加保存移动平均值的操作。这个操作一般在每一次训练步后执行
-  # 这个有问题：要放到for下面，不然loss_average类型就变了
-  loss_average = loss_average.apply(losses + [total_loss])
-  
+  return loss_average_op
+
 
 def train(total_loss, global_step):
   """Train CIFAR-10 model.
@@ -367,8 +369,10 @@ def train(total_loss, global_step):
   # 可视化
   for var in tf.trainable_variables():
       tf.summary.histogram(var.op.name, var)
+
   for grad, var in grads:
-    if grad:
+    # 这个有问题：判断不能直接用if grad
+    if grad is not None:
       tf.summary.histogram(var.op.name + '/gradients', grad)
 
   # ExponentialMovingAverage类保存变量的指数加权平均值

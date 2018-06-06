@@ -142,6 +142,12 @@ def my_sparse_to_dense():
         print(sess.run(dense))
 
 
+def my_zero_fraction():
+    z = [0, 1, 0, 0, 0]
+    with tf.Session() as sess:
+        print(sess.run(tf.nn.zero_fraction(z)))
+
+
 if __name__ == "__main__":
     # myslice()
     #my_decode_raw()
@@ -164,9 +170,10 @@ if __name__ == "__main__":
     # my_shuffle_batch()
     # my_concat()
     # my_sparse_to_dense()
-    indices = tf.reshape([i for i in range(128)], [128, 1])
-    indices2 = tf.reshape([i for i in range(128)], [128, 1])
-    print(tf.concat(1, [indices, indices2]))
+    # indices = tf.reshape([i for i in range(128)], [128, 1])
+    # indices2 = tf.reshape([i for i in range(128)], [128, 1])
+    # print(tf.concat(1, [indices, indices2]))
+    my_zero_fraction()
 
 # tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
 #  tf.concat(1, [indices, sparse_labels])

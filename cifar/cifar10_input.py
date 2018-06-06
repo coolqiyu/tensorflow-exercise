@@ -182,7 +182,7 @@ def distorted_inputs(data_dir, batch_size):
   #tf.image.per_image_whitening(image)
   #对image线性变换，使得平均值为0，且归一化
   # 更换成per_image_standardization
-  float_image = tf.image.per.per_image_standardization(distorted_image)
+  float_image = tf.image.per_image_standardization(distorted_image)
 
   # queue中填充的图片数量是总的0.4
   min_fraction_of_examples_in_queue = 0.4
@@ -231,7 +231,7 @@ def inputs(eval_data, data_dir, batch_size):
   #对图像进行裁剪或填充，使得达到目标大小
   resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image,
                                                          width, height)
-  float_image = tf.image.per_image_whitening(resized_image)
+  float_image = tf.image.per_image_standardization(resized_image)
   min_fraction_of_examples_in_queue = 0.4
   min_queue_examples = int(num_examples_per_epoch *
                            min_fraction_of_examples_in_queue)

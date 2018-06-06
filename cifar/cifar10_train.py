@@ -79,9 +79,11 @@ def train():
     train_op = cifar10.train(loss, global_step)
 
     # 创建一个saver，第一个参数是要保存的参数列表
-    saver = tf.train.Saver(tf.all_variables)
+    # 这个有问题：all_variables是一个函数
+    saver = tf.train.Saver(tf.all_variables())
 
-    summary_op = tf.merge_all_summaries()
+    # merge_all_summaries变了
+    summary_op = tf.summary.merge_all()
 
     init = tf.initialize_all_variables()
 
@@ -94,7 +96,8 @@ def train():
     tf.train.start_queue_runners(sess=sess)
 
     # 可视化的写
-    summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,
+    # tf.train.SummaryWriter改成tf.summary.FileWriter
+    summary_writer = tf.summary.FileWriter(FLAGS.train_dir,
                                             graph_def=sess.graph_def)
 
     # xrange返回一个生成器

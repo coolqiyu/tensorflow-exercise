@@ -133,10 +133,10 @@ def evaluate():
     saver = tf.train.Saver(variables_to_restore)
 
     # 可视化
-    summary_op = tf.merge_all_summaries()
+    summary_op = tf.summary.merge_all()
 
     graph_def = tf.get_default_graph().as_graph_def()
-    summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir,
+    summary_writer = tf.summary.FileWriter(FLAGS.eval_dir,
                                             graph_def=graph_def)
     # 遍历评估
     while True:
