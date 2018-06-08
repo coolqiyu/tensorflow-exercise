@@ -11,8 +11,8 @@ if __name__ == '__main__':
     # print(a)
     a = [1, 2]
     b = [[[[[1],[2]],[[1],[2]]]]]
-    a=[[1, 2, 3]]
-    b=[[1], [2], [1]]
+    b=[[1, 2, 3]]
+    a=[[1], [2], [1]]
     print(np.matmul(a, b))
     print(MyMnist.Mat.matmul(a, b))
     # print(np.shape(a))

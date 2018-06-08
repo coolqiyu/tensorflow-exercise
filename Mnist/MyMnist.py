@@ -21,13 +21,13 @@ class Mat:
             n = 1
             x = [x]
         else:
-            n = len(x_shape)
+            n = x_shape[0]
         m_x = x_shape[0] if len(x_shape) == 1 else x_shape[1]
         if len(y_shape) == 1:
             m_y = 1
             y = [y]
         else:
-            m_y = len(y_shape)
+            m_y = y_shape[0]
         p = y_shape[0] if len(y_shape) == 1 else y_shape[1]
 
         if m_x != m_y:
@@ -152,28 +152,33 @@ class Shape:
         return data
 
 
-def softmax(z):
+class NN:
     """
-    对z执行softmax函数
-    :param z:
-    :return: softmax(z)
+    和网络相关的操作
     """
-    pass
+    @staticmethod
+    def softmax(z):
+        """
+        对z执行softmax函数
+        :param z:
+        :return: softmax(z)
+        """
+        pass
 
+    @staticmethod
+    def loss(y_, y):
+        """
+        y和y_的loss函数
+        :param y_: 训练的结果
+        :param y: 真实的label
+        :return:
+        """
+        pass
 
-def loss(y_, y):
-    """
-    y和y_的loss函数
-    :param y_: 训练的结果
-    :param y: 真实的label
-    :return:
-    """
-    pass
-
-
-def optimizer():
-    """
-    优化函数
-    :return:
-    """
-    pass
+    @staticmethod
+    def optimizer():
+        """
+        优化函数
+        :return:
+        """
+        pass
