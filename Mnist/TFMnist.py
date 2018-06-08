@@ -136,12 +136,13 @@ def max_pool_2x2(x):
 def tensorboard():
     # None表示此张量的第一个维度可以是任何长度的
     x = tf.placeholder("float", [None, 784])
-    y_ = tf.placeholder("float", [100, 10])  # 标签，正确结果
+    y_ = tf.placeholder("float", [None, 10])  # 标签，正确结果
 
     # 初始化两个参数
     W = tf.Variable(tf.zeros([784, 10]))
     b = tf.Variable(tf.zeros([10]))
-
+    m = [1,2,3,4,5,6]
+    tf.summary.histogram("xx", b)
     # softmax函数
     y = tf.nn.softmax(tf.matmul(x, W) + b)  # 执行结果
 
@@ -159,6 +160,11 @@ def tensorboard():
     prediction_train = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
     accuracy_train = tf.reduce_mean(tf.cast(prediction_train, "float"))
     tf.summary.scalar("accuarcy_train", accuracy_train)
+
+    # 显示图像
+    batch_xs, batch_ys = mnist.train.next_batch(100)
+    tf.summary.image('images', tf.reshape(batch_xs, [100, 28, 28, 1]))
+
     # 用于tensorboard
     merged = tf.summary.merge_all()
 
@@ -169,9 +175,13 @@ def tensorboard():
         # 循环遍历1000次训练模型
         for i in range(1000):
             # 每一步迭代加载100个训练样本，然后执行一次train_step，并通过feed_dict将x 和 y张量占位符用训练训练数据替代
-            batch_xs, batch_ys = mnist.train.next_batch(100)
             summary, _ = sess.run([merged, train_step], feed_dict={x: batch_xs, y_: batch_ys})
-            train_writer.add_summary(summary, i)
+
+            if i % 10 == 0:
+                train_writer.add_summary(summary, i)
+                for index, d in enumerate(m):
+                    m[index] -= 0.1
+            batch_xs, batch_ys = mnist.train.next_batch(100)
         train_writer.close()
 
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
