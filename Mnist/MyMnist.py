@@ -1,6 +1,98 @@
 ##################################
 # 这个文件使用纯Python写一个网络，不借助tf或np
 ##################################
+import math
+from sympy import *
+
+def my_mnist():
+    # 读取数据
+    x = []
+    y = []
+
+    # 图像的大小
+    width = 28
+    height = 28
+    channel = 1
+    pic_size = width * height * channel
+    batch_size = 100
+
+    # 前向传播：y_ = softmax(wx+b)
+    x = Shape.reshape(x, (1, pic_size))
+    w = Mat.zeros((pic_size, 10))
+    b = Mat.zeros((1, 10))
+    z = Mat.matadd(Mat.matmul(w, x), b)
+    y_ = NN.softmax(z)
+
+    it = 0 # 第it次迭代
+    it_cnt = 100 # 执行100次迭代
+    alpha = 0.1 # 学习率
+    while it < it_cnt:
+        # 根据loss函数反向传播
+        # da =
+        # dz =
+        # dw =
+        # db =
+        # w = w - alpha * dw
+        # b = b - alpha * b
+        #
+        # # 前向传播
+        # z = Mat.matadd(Mat.matmul(w, x), b)
+        y_ = NN.softmax(z)
+
+
+class NN:
+    """
+    和网络相关的操作
+    """
+    @staticmethod
+    def softmax(z):
+        """
+        对z执行softmax函数
+        :param z:
+        :return: softmax(z)
+        """
+        result = []
+        sum = 0
+        for z_i in z:
+            e_z = math.exp(z_i)
+            sum += e_z
+            result.append(e_z)
+
+        for i, z_i in enumerate(z):
+            result[i] = (float)(result[i])/float(sum)
+        return result
+
+
+    @staticmethod
+    def loss(y_, y):
+        """
+        y和y_的loss函数
+        :param y_: 训练的结果
+        :param y: 真实的label
+        :return:
+        """
+        sum = 0
+        for i, y_i in enumerate(y):
+            sum = sum - y_i * math.log2(y_[i]) - (1 - y_i) * math.log2(1 - y_[i])
+        return sum
+
+    @staticmethod
+    def derive():
+        """
+        反向求导
+        :return:
+        """
+        x = Symbol("x")
+        diff(1/(1+x**2), x)
+
+    @staticmethod
+    def optimizer():
+        """
+        优化函数
+        :return:
+        """
+        pass
+
 
 class Mat:
     """
@@ -72,6 +164,22 @@ class Mat:
 
         add_(x, y, 0)
         return x
+
+    @staticmethod
+    def zeros(shape):
+        """
+        生成shape形的值都为0
+        :param shape:
+        :return:
+        """
+        dim = 1
+        for d in shape:
+            dim *= d
+
+        zeros = []
+        for i in dim:
+            zeros.append(0)
+        return Shape.reshape(zeros, shape)
 
 class Shape:
     """
@@ -150,35 +258,3 @@ class Shape:
             size = i
 
         return data
-
-
-class NN:
-    """
-    和网络相关的操作
-    """
-    @staticmethod
-    def softmax(z):
-        """
-        对z执行softmax函数
-        :param z:
-        :return: softmax(z)
-        """
-        pass
-
-    @staticmethod
-    def loss(y_, y):
-        """
-        y和y_的loss函数
-        :param y_: 训练的结果
-        :param y: 真实的label
-        :return:
-        """
-        pass
-
-    @staticmethod
-    def optimizer():
-        """
-        优化函数
-        :return:
-        """
-        pass
