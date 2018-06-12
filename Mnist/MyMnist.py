@@ -2,12 +2,11 @@
 # 这个文件使用纯Python写一个网络，不借助tf或np
 ##################################
 import math
-from sympy import *
+from . import input_data
 
 def my_mnist():
     # 读取数据
-    x = []
-    y = []
+    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
     # 图像的大小
     width = 28
@@ -16,28 +15,23 @@ def my_mnist():
     pic_size = width * height * channel
     batch_size = 100
 
-    # 前向传播：y_ = softmax(wx+b)
-    x = Shape.reshape(x, (1, pic_size))
+    # 初始化变量
+    # x = Shape.reshape(x, (1, pic_size))
     w = Mat.zeros((pic_size, 10))
     b = Mat.zeros((1, 10))
-    z = Mat.matadd(Mat.matmul(w, x), b)
-    y_ = NN.softmax(z)
 
-    it = 0 # 第it次迭代
     it_cnt = 100 # 执行100次迭代
     alpha = 0.1 # 学习率
-    while it < it_cnt:
-        # 根据loss函数反向传播
-        # da =
-        # dz =
-        # dw =
-        # db =
-        # w = w - alpha * dw
-        # b = b - alpha * b
-        #
-        # # 前向传播
-        # z = Mat.matadd(Mat.matmul(w, x), b)
+    for it in range(it_cnt):
+        x, y = mnist.train.next_batch(1)
+        #前向
+        z = Mat.matadd(Mat.matmul(w, x), b)
         y_ = NN.softmax(z)
+        # 反向求导，更新参数
+        NN.derive(y_, y, x, alpha, w, b)
+        # loss函数
+        loss = NN.loss(y_, y)
+        print(loss)
 
 
 class NN:
@@ -66,24 +60,44 @@ class NN:
     @staticmethod
     def loss(y_, y):
         """
-        y和y_的loss函数
+        y和y_的loss函数 cost = sum y log y_
         :param y_: 训练的结果
         :param y: 真实的label
         :return:
         """
         sum = 0
         for i, y_i in enumerate(y):
-            sum = sum - y_i * math.log2(y_[i]) - (1 - y_i) * math.log2(1 - y_[i])
+            sum = sum - y_i * math.log(y_[i])
         return sum
 
     @staticmethod
-    def derive():
+    def derive(a, y, x, alpha, w, b):
         """
-        反向求导
+        反向求导，更新w和b
+        :param:a 最后输出的向量 m样本数，n个分类 [n, m]
+        :param:y 输入的Label向量 m样本数，n个分类 [n, m] n个数中只有一个是1， 其他为0
+        :param:x 输入的样本值 k为一个样本的特征值数量 [k, m]
+        :param:alpha 学习率
         :return:
         """
-        x = Symbol("x")
-        diff(1/(1+x**2), x)
+        dz = []
+        class_cnt = len(a)
+        feature_cnt = len(x)
+        for i in class_cnt:
+            #dz = a - y
+            dz.append(a[i] - y[i])
+            # db = (a- y)
+            # db.append(dz[i] *1)
+            b[i] = b[i] - alpha * dz[i]
+        dw = []
+        db = []
+        for i in feature_cnt:
+            dw.append([])
+            for j in class_cnt:
+                # dw = (a - y) * x
+                # dw[i].append(x[i] * dz[j])
+                w[i][j] = w[i][j] - alpha * x[i] * dz[j]
+
 
     @staticmethod
     def optimizer():
@@ -176,10 +190,10 @@ class Mat:
         for d in shape:
             dim *= d
 
-        zeros = []
-        for i in dim:
-            zeros.append(0)
-        return Shape.reshape(zeros, shape)
+        result = []
+        for i in range(dim):
+            result.append(0)
+        return Shape.reshape(result, shape)
 
 class Shape:
     """
