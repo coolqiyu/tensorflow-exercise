@@ -23,9 +23,10 @@ def my_mnist():
     it_cnt = 100 # 执行100次迭代
     alpha = 0.1 # 学习率
     for it in range(it_cnt):
+        # 读出来的数据 x[batchsize, 784]    y[batchsize, 10]
         x, y = mnist.train.next_batch(1)
-        #前向
-        z = Mat.matadd(Mat.matmul(w, x), b)
+        # 前向  z:[batchsize, 10]
+        z = Mat.matadd(Mat.matmul(x, w), b)
         y_ = NN.softmax(z)
         # 反向求导，更新参数
         NN.derive(y_, y, x, alpha, w, b)
@@ -45,16 +46,19 @@ class NN:
         :param z:
         :return: softmax(z)
         """
-        result = []
-        sum = 0
-        for z_i in z:
-            e_z = math.exp(z_i)
-            sum += e_z
-            result.append(e_z)
+        results = []
+        for z_ in z:
+            sum = 0
+            result = []
+            for z_i in z_:
+                e_z = math.exp(z_i)
+                sum += e_z
+                result.append(e_z)
 
-        for i, z_i in enumerate(z):
-            result[i] = (float)(result[i])/float(sum)
-        return result
+            for i, z_i in enumerate(z_):
+                result[i] = (float)(result[i])/float(sum)
+            results.append(result)
+        return results
 
 
     @staticmethod
@@ -65,10 +69,12 @@ class NN:
         :param y: 真实的label
         :return:
         """
+        batch_size = len(y_)
         sum = 0
-        for i, y_i in enumerate(y):
-            sum = sum - y_i * math.log(y_[i])
-        return sum
+        for batch_index in range(batch_size):
+            for i, y_i in enumerate(y[batch_index]):
+                sum = sum - y_i * math.log(y_[batch_index][i])
+        return sum/batch_size
 
     @staticmethod
     def derive(a, y, x, alpha, w, b):
@@ -83,7 +89,7 @@ class NN:
         dz = []
         class_cnt = len(a)
         feature_cnt = len(x)
-        for i in class_cnt:
+        for i in range(class_cnt):
             #dz = a - y
             dz.append(a[i] - y[i])
             # db = (a- y)
@@ -91,12 +97,14 @@ class NN:
             b[i] = b[i] - alpha * dz[i]
         dw = []
         db = []
-        for i in feature_cnt:
-            dw.append([])
-            for j in class_cnt:
-                # dw = (a - y) * x
-                # dw[i].append(x[i] * dz[j])
-                w[i][j] = w[i][j] - alpha * x[i] * dz[j]
+        batch_size = 1
+        for batch_index in batch_size:
+            for i in range(feature_cnt):
+                dw.append([])
+                for j in range(class_cnt):
+                    # dw = (a - y) * x
+                    # dw[i].append(x[i] * dz[j])
+                    w[i][j] = w[i][j] - alpha * x[batch_index][i] * dz[j]
 
 
     @staticmethod
@@ -206,11 +214,14 @@ class Shape:
         :param x:
         :return: 返回形状的序列(1,2,3)
         """
-        size = len(x) if isinstance(x, list) else 0
-        if size == 0:
+        try:
+            size = len(x)
+        except TypeError:
+            print('x: {x} 没有len()'.format(x=x))
             return ()
         else:
             return (size,) + Shape.get_shape(x[0])
+
 
     @staticmethod
     def flattern(x):
