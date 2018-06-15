@@ -13,7 +13,7 @@ def my_mnist():
     height = 28
     channel = 1
     pic_size = width * height * channel
-    batch_size = 100
+    batch_size = 1
 
     # 初始化变量
     # x = Shape.reshape(x, (1, pic_size))
@@ -24,7 +24,7 @@ def my_mnist():
     alpha = 0.1 # 学习率
     for it in range(it_cnt):
         # 读出来的数据 x[batchsize, 784]    y[batchsize, 10]
-        x, y = mnist.train.next_batch(1)
+        x, y = mnist.train.next_batch(batch_size)
         # 前向  z:[batchsize, 10]
         z = Mat.matadd(Mat.matmul(x, w), b)
         y_ = NN.softmax(z)
@@ -86,25 +86,32 @@ class NN:
         :param:alpha 学习率
         :return:
         """
-        dz = []
-        class_cnt = len(a)
-        feature_cnt = len(x)
+        batch_size = len(a)
+        class_cnt = len(a[0])
+        feature_cnt = len(x[0])
+        dz = Mat.zeros((batch_size, class_cnt))
+        db = Mat.zeros((1, class_cnt))
+        dw = Mat.zeros((feature_cnt, class_cnt))
+
         for i in range(class_cnt):
-            #dz = a - y
-            dz.append(a[i] - y[i])
-            # db = (a- y)
-            # db.append(dz[i] *1)
-            b[i] = b[i] - alpha * dz[i]
-        dw = []
-        db = []
-        batch_size = 1
-        for batch_index in batch_size:
-            for i in range(feature_cnt):
-                dw.append([])
-                for j in range(class_cnt):
-                    # dw = (a - y) * x
-                    # dw[i].append(x[i] * dz[j])
-                    w[i][j] = w[i][j] - alpha * x[batch_index][i] * dz[j]
+            for batch_index in range(batch_size):
+                #dz = a - y
+                dz[batch_index][i] = a[batch_index][i] - y[batch_index][i]
+                # db = (a- y)
+                # db.append(dz[i] *1)
+                db[0][i] += dz[batch_index][i]
+            db[0][i] = db[0][i]/batch_size
+            b[0][i] = b[0][i] - alpha * db[0][i]
+
+
+        for i in range(feature_cnt):
+            for j in range(class_cnt):
+                for batch_index in range(batch_size):
+                # dw = (a - y) * x
+                # dw[i].append(x[i] * dz[j])
+                    w[i][j] += x[batch_index][i] * dz[batch_index][j]
+                dw[i][j] = dw[i][j] / batch_size
+                w[i][j] = w[i][j] - alpha * dw[i][j]
 
 
     @staticmethod
