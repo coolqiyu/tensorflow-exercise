@@ -29,9 +29,9 @@ def one_layer_mnist_train():
         for i in range(1000):
             # 每一步迭代加载100个训练样本，然后执行一次train_step，并通过feed_dict将x 和 y张量占位符用训练训练数据替代
             batch_xs, batch_ys = mnist.train.next_batch(100)
-            print(sess.run([train_step, W, b], feed_dict={x: batch_xs, y_: batch_ys}))
+            print(sess.run([train_step, W, b, cross_entropy], feed_dict={x: batch_xs, y_: batch_ys}))
 
-        # 为什么这里可以判断看test集的？
+        # 下面判断测试集，应该相当于在网络后增加节点
         # 利用test数据集判断模型的结果
         # tf.equal 来检测我们的预测是否真实标签匹配(索引位置一样表示匹配)
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
