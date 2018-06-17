@@ -1,6 +1,7 @@
 import tensorflow as tf
 from . import input_data
 
+DEBUG = True
 
 # 一个隐藏层网络
 def one_layer_mnist_train():
@@ -30,6 +31,7 @@ def one_layer_mnist_train():
             # 每一步迭代加载100个训练样本，然后执行一次train_step，并通过feed_dict将x 和 y张量占位符用训练训练数据替代
             batch_xs, batch_ys = mnist.train.next_batch(100)
             print(sess.run([train_step, W, b, cross_entropy], feed_dict={x: batch_xs, y_: batch_ys}))
+
 
         # 下面判断测试集，应该相当于在网络后增加节点
         # 利用test数据集判断模型的结果
@@ -116,10 +118,14 @@ tf.nn.conv2d(input, filter, strides, padding)
  input:输入4维，[batch_size, in_height, in_width, in_channel]
  filter：[in_height, in_width, in_channel, filter_size]  filter_size：包含几个过滤器=输出的channel
  strides：步长，4维，顺序为NHWC，也就是[batch, height, width, channel]，且要求strides[0]=strides[3]=1
- padding: A `string` from: `"SAME", "VALID"`.
+ padding: A `string` from: `"SAME", "VALID"`.决定padding的算法，不是自己指定padding的大小
  use_cudnn_on_gpu: An optional `bool`. Defaults to `True`.
  data_format: An optional `string` from: `"NHWC", "NCHW"`. Defaults to `"NHWC"`.
  Specify the data format of the input and output data. With the default format "NHWC", the data is stored in the order of: [batch, height, width, channels].
+ 输出的形状：shape(output) = [batch, (in_height - filter_height + 1) / strides[1], (in_width - filter_width + 1) / strides[2],...]
+            padding = 'SAME': 向下取整 (only full size windows are considered).
+            padding = 'VALID': 向上取整 (partial windows are included).
+            padding填充的个数为0
 """
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding="SAME")

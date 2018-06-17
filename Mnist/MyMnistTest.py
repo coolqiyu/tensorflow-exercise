@@ -1,7 +1,7 @@
 from . import MyMnist
 
 import unittest
-
+import copy
 
 class TestMat(unittest.TestCase):
     """
@@ -10,7 +10,7 @@ class TestMat(unittest.TestCase):
     def listAlmostEqual(self, result, expect):
         for d1 in range(len(expect)):
             for d2 in range(len(expect[0])):
-                self.assertAlmostEqual(result[d1][d2], expect[d1][d2], delta=0.1)
+                self.assertAlmostEqual(result[d1][d2], expect[d1][d2], delta=0.09)
 
     # Mat类的测试
     def test_matmul(self):
@@ -67,8 +67,8 @@ class TestMat(unittest.TestCase):
         alpha = 0.01
         dw = [[0.5 / 3, 0.5, -3.5 / 3, 0.5], [0.5 / 3, 0.5, -3.5 / 3, 0.5]]
         db = [[-0.25 / 3, 0.25, -1.25 / 3, 0.25]]
-        new_w = w[:]
-        new_b = b[:]
+        new_w = copy.deepcopy(w)
+        new_b = copy.deepcopy(b)
         for d1 in range(len(w)):
             for d2 in range(len(w[0])):
                 new_w[d1][d2] = new_w[d1][d2] - alpha * dw[d1][d2]
