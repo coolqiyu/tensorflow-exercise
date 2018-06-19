@@ -104,22 +104,6 @@ class NN:
                         sum = MAX_NUM
                     else:
                         sum += -1 * math.log(y_[batch_index][i])
-                # try:
-                #     sum = sum - y_i * math.log(y_[batch_index][i])
-                # except ValueError:
-                #     sum = sum - y_i * (-MAX_NUM)
-                #     if math.isinf(sum):
-                #         sum = MAX_NUM
-                # if abs(y_[batch_index][i]) < MIN_NUM and y_i == 0:
-                #     sum = sum
-                # else:
-                #     try:
-                #         sum = sum - y_i * math.log(y_[batch_index][i])
-                #     except ValueError:
-                #         sum = sum - y_i * (-MAX_NUM)
-                #         if math.isinf(sum):
-                #             sum = MAX_NUM
-
         return sum/batch_size
 
 
@@ -304,7 +288,7 @@ class Shape:
         """
         try:
             size = len(x)
-        except TypeError:
+        except TypeError as ex:
             #print('x: {x} 没有len()'.format(x=x))
             return ()
         else:

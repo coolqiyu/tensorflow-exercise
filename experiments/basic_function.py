@@ -5,6 +5,13 @@ import tensorflow as tf
 import numpy as np
 
 
+def my_variable_scope():
+    with tf.Session() as sess:
+        with tf.variable_scope("foo"):
+            v = tf.get_variable("v", [1])
+            assert v.name == "/foo/v:0"
+
+
 def myslice():
     """
     slice(data, begin, size)
@@ -173,7 +180,8 @@ if __name__ == "__main__":
     # indices = tf.reshape([i for i in range(128)], [128, 1])
     # indices2 = tf.reshape([i for i in range(128)], [128, 1])
     # print(tf.concat(1, [indices, indices2]))
-    my_zero_fraction()
+    # my_zero_fraction()
+    my_variable_scope()
 
 # tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
 #  tf.concat(1, [indices, sparse_labels])
