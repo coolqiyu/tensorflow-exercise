@@ -1,3 +1,7 @@
+#
+# tensorflow实现的对mnist数据集的几个简单网络
+#==================================================
+
 import tensorflow as tf
 from . import input_data
 

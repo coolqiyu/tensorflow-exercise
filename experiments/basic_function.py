@@ -5,12 +5,47 @@ import tensorflow as tf
 import numpy as np
 
 
+def my_pad():
+    """
+    tf.pad(t, p)：根据p，对t进行填充
+    t: n 维度
+    p: [n, 2]
+    输出：第D维 paddings[D, 0] + tensor.dim_size(D) + paddings[D, 1]
+    :return:
+    """
+    t1 = tf.constant([[1, 2, 3]])
+    p1 = tf.constant([[1, 2], [1, 2]])
+    with tf.Session() as sess:
+        r = tf.pad(t1, p1)
+        print(sess.run(r))
+
+
 def my_variable_scope():
     with tf.Session() as sess:
-        with tf.variable_scope("foo"):
+        with tf.variable_scope("foo") as scope:
             v = tf.get_variable("v", [1])
-            assert v.name == "/foo/v:0"
+            # 设置这个区域是可重用的，这样该语句下方的代码才可以访问其前面创建的变量
+            # 实际上把reuse标签设置为True
+            scope.reuse_variables()
+            # assert v.name == "foo/v:0"
+            # with tf.variable_scope("foo"):
+            v2 = tf.get_variable("v", [1])
+            assert v == v2
 
+        # reuse=True说明这个作用域是为了重用，也就是要访问已经存在的变量，如果变量不存在，就会报错
+        with tf.variable_scope("foo", reuse=True) as scope:
+            v = tf.get_variable("v", [1])
+            # assert v.name == "foo/v:0"
+
+            # with tf.variable_scope("foo"):
+            v2 = tf.get_variable("v", [1])
+            assert v == v2
+
+        # reuse=False说明这个作用域是为了创建变量，如果变量存在，就会报错
+        with tf.variable_scope("foo", reuse=False) as scope:
+            v = tf.get_variable("v", [1])
+            v2 = tf.get_variable("v", [1])
+            assert v == v2
 
 def myslice():
     """
@@ -155,7 +190,20 @@ def my_zero_fraction():
         print(sess.run(tf.nn.zero_fraction(z)))
 
 
+def fetch():
+    """
+    sess.run中第一个参数是执行并取出的数据
+    :return:
+    """
+    with tf.Session() as sess:
+        a = tf.constant([2, 2])
+        b = tf.constant([2, 2])
+        a, b = sess.run([a, b])
+        print(a)
+        print(b)
+
 if __name__ == "__main__":
+    fetch()
     # myslice()
     #my_decode_raw()
     # my_transpose()
@@ -181,7 +229,8 @@ if __name__ == "__main__":
     # indices2 = tf.reshape([i for i in range(128)], [128, 1])
     # print(tf.concat(1, [indices, indices2]))
     # my_zero_fraction()
-    my_variable_scope()
+    # my_variable_scope()
+    # my_pad()
 
 # tf.sparse_to_dense(sparse_indices, output_shape, sparse_values, default_value, name=None)
 #  tf.concat(1, [indices, sparse_labels])
