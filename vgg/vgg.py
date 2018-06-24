@@ -1,10 +1,11 @@
 # vgg-16网络
 import tensorflow as tf
 import Mnist.input_data as input_data
+from tensorflow.python import debug as tfdbg
 
 BATCH_SIZE = 100
-IMAGE_WIDTH = 224
-IMAGE_HEIGHT = 224
+IMAGE_WIDTH = 28
+IMAGE_HEIGHT = 28
 IMAGE_CHANNEL = 1
 
 
@@ -45,7 +46,7 @@ def loss(y_, y):
     """
     return -tf.reduce_sum(y * tf.log(y_))
 
-def train_net(x, y):
+def train_net_large(x, y):
     """
     网络结构
     :param input_data 输入的数据
@@ -167,41 +168,101 @@ def train_net(x, y):
     return result
 
 
+def train_net_small(x0, y):
+    """
+    网络结构
+    :param input_data 输入的数据
+    :return:
+    """
+    # x, y = input_data.x, input_data.y
+    x = tf.reshape(x0, shape=[-1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNEL])
+    # conv1
+    global w_conv1
+    w_conv1 = weight_variable([3, 3, IMAGE_CHANNEL, 64])
+    b_conv1 = bias_variable([64])
+    conv1 = tf.nn.conv2d(x, w_conv1, strides=[1, 1, 1, 1], padding="SAME") + b_conv1
+    conv1 = tf.nn.relu(conv1)
+
+    # conv2
+    w_conv2 = weight_variable([3, 3, 64, 64])
+    b_conv2 = bias_variable([64])
+    conv2 = tf.nn.conv2d(conv1, w_conv2, strides=[1, 1, 1, 1], padding="SAME") + b_conv2
+    conv2 = tf.nn.relu(conv2)
+
+    # pool2
+    pool2 = tf.nn.max_pool(conv2, [1, 2, 2, 1], [1, 2, 2, 1], padding="VALID")
+
+    # conv3
+    w_conv3 = weight_variable([3, 3, 64, 128])
+    b_conv3 = bias_variable([128])
+    conv3 = tf.nn.conv2d(pool2, w_conv3, strides=[1, 1, 1, 1], padding="SAME") + b_conv3
+    conv3 = tf.nn.relu(conv3)
+
+    # conv4
+    w_conv4 = weight_variable([3, 3, 128, 128])
+    b_conv4 = bias_variable([128])
+    conv4 = tf.nn.conv2d(conv3, w_conv4, strides=[1, 1, 1, 1], padding="SAME") + b_conv4
+    conv4 = tf.nn.relu(conv4)
+
+    # pool4
+    pool4 = tf.nn.max_pool(conv4, [1, 2, 2, 1], [1, 2, 2, 1], padding="VALID")
+    pool4 = tf.reshape(pool4, [BATCH_SIZE, 7 * 7 * 128])
+
+    # fc14
+    w_fc14 = weight_variable([7*7*128, 1024])
+    b_fc14 = bias_variable([1024])
+    fc14 = tf.nn.relu(tf.matmul(pool4, w_fc14) + b_fc14)
+
+    # fc15
+    w_fc15 = weight_variable([1024, 1024])
+    b_fc15 = bias_variable([1024])
+    fc15 = tf.nn.relu(tf.matmul(fc14, w_fc15) + b_fc15)
+
+    # fc16
+    w_fc16 = weight_variable([1024, 10])
+    b_fc16 = bias_variable([10])
+    fc16 = tf.nn.relu(tf.matmul(fc15, w_fc16) + b_fc16)
+
+    result = tf.nn.softmax(fc16)
+
+    return result
+
+
 def train():
     """
     训练过程
     :return:
     """
-    x = tf.placeholder("float", shape=[BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNEL])
-    y = tf.placeholder("float", shape=[BATCH_SIZE, 10])
-    y_ = train_net(x, y)
-    cross_entropy = loss(y_, y)
-    train_step = tf.train.AdamOptimizer(0.1).minimize(cross_entropy)
+    x = tf.placeholder("float", shape=[None, IMAGE_CHANNEL * IMAGE_WIDTH * IMAGE_HEIGHT])
+    y = tf.placeholder("float", shape=[None, 10])
+    y_ = train_net_small(x, y)
+    cross_entropy = -tf.reduce_sum(y * tf.log(y_))# loss(y_, y)
+    train_step = tf.train.AdamOptimizer(0.01).minimize(cross_entropy)
 
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
 
-    init = tf.initialize_all_variables()
+    init = tf.global_variables_initializer()
     with tf.Session() as sess:
         sess.run(init)
 
-        for i in range(100):
-            mx, my = mnist.train.next_batch(BATCH_SIZE)
-            mx = tf.pad(mx, tf.constant([[0, 0], [24696, 24696]]))
-            mx = tf.reshape(mx, [BATCH_SIZE, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNEL])
-            mx = tf.transpose(mx, [0, 2, 1, 3])
-            my = tf.reshape(my, [BATCH_SIZE, 10])
-            mx, my = sess.run([mx, my])
-            sess.run(train_step, feed_dict={x: mx, y: my})
+        for i in range(10):
+            batch = mnist.train.next_batch(BATCH_SIZE)
+            # mx = tf.reshape(mx, [-1, IMAGE_HEIGHT, IMAGE_WIDTH, 1])
+            # mx = tf.transpose(mx, [0, 2, 3, 1])
+            # my = tf.reshape(my, [BATCH_SIZE, 10])
+            # mx, my = sess.run([mx, my])
+            print(sess.run([train_step, cross_entropy, y_[0]], feed_dict={x: batch[0], y: batch[1]}))
 
-        correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-        mx = mnist.test.images
-        mx = tf.pad(mx, tf.constant([[0, 0], [24696, 24696]]))
-        mx = tf.reshape(mx, [len(mx), IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNEL])
-        mx = tf.transpose(mx, [0, 2, 1, 3])
-        mx = sess.run(mx)
-        my = mnist.test.labels
-        print(sess.run(accuracy, feed_dict={x: mx, y: my}))
+        # correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+        # accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        # mx = mnist.test.images
+        # mx = tf.reshape(mx, [len(mx), IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNEL])
+        # mx = tf.transpose(mx, [0, 2, 1, 3])
+        # mx = sess.run(mx)
+        # my = mnist.test.labels
+        # x = tf.placeholder("float", mx.shape)
+        # y = tf.placeholder("float", my.shape)
+        # print(sess.run(accuracy, feed_dict={x: mx, y: my}))
 
 
 def test():
