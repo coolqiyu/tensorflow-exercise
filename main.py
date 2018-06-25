@@ -6,7 +6,12 @@ from sympy import *
 
 if __name__ == '__main__':
    #MyMnist.my_mnist_train()
-   #TFMnist.one_layer_mnist_train()
-   a = "aa"
-   if type(a) == str:
-      print("dslfdj")
+   #TFMnist.four_layers_mnist_train()
+   # a = "aa"
+   # if type(a) == str:
+   #    print("dslfdj")
+   a = np.multiply([1,2], [2, 4])
+   m = 0
+   m[1] = 2
+   print(m)
+   print(np.sum([[0, 0], [1, 1]], 1))

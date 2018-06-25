@@ -7,6 +7,10 @@ from . import input_data
 MAX_NUM = 1.79e+307
 MIN_NUM = -1.79e+307
 def my_mnist_train():
+    """
+    整个网络执行的入口
+    :return:
+    """
     # 读取数据
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
@@ -42,6 +46,12 @@ def my_mnist_train():
 
 
 def my_mnist_test(w, b):
+    """
+    测试测试数据集的正确性
+    :param w:
+    :param b:
+    :return:
+    """
     # 读取测试数据集
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
     x = mnist.test.images
