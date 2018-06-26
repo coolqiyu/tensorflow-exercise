@@ -12,6 +12,9 @@ if __name__ == '__main__':
    #    print("dslfdj")
    a = np.multiply([1,2], [2, 4])
    m = 0
-   m[1] = 2
+
    print(m)
    print(np.sum([[0, 0], [1, 1]], 1))
+   print(np.divide([2, 2], 2))
+   print(np.multiply([1, 2],2))
+   print(2 *[1, 2])

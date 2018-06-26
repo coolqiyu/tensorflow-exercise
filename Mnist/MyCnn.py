@@ -123,12 +123,15 @@ def accuracy(y, y_):
     pass
 
 
-def nn(x):
+def nn(x, y):
     """
     网络结构
     :param x: 输入
     :return:
     """
+    BATCH_SIZE = len(x)
+    ALPHA = 0.1
+
     # 第一层卷积
     W_conv1 = np.zeros([5, 5, 1, 32])  # 5*5*1
     b_conv1 = np.zeros([32])  # 32
@@ -148,7 +151,8 @@ def nn(x):
     W_fc1 = np.zeros([7 * 7 * 64, 1024])
     b_fc1 = np.zeros([1024])
     h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])  # 把h_pool2变成一维7*7*64行
-    h_fc1 = relu(np.matmul(h_pool2_flat, W_fc1) + b_fc1)  # 1024
+    h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
+    h_fc1 = relu(h_fc1_z)  # 1024
 
     # 输出层 softmax
     W_fc2 = np.zeros([1024, 10])
@@ -156,7 +160,98 @@ def nn(x):
     # y_conv是结果
     y_conv = softmax(np.matmul(h_fc1, W_fc2) + b_fc2)
 
-    return y_conv
+    # loss函数
+    cross_entropy = loss(y, y_conv)
+
+    # 反向求导更新
+    # y_conv=softmax(z)
+    dz = derive_softmax(y_conv, y)
+    # z = np.matmul(h_fc1, W_fc2) + b_fc2
+    db_fc2 = dz
+    b_fc2 -= np.multiply(ALPHA, db_fc2)
+    dh_fc1, dW_fc2 = np.multiply(derive_matmul(h_fc1, W_fc2), dz)
+    dW_fc2 = np.divide(dW_fc2, BATCH_SIZE)
+    W_fc2 -= np.multiply(ALPHA, dW_fc2)
+    #h_fc1 = relu(h_fc1_z)
+    dh_fc1_z = derive_relu(h_fc1_z) * dh_fc1
+    #h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
+    db_fc1 = dh_fc1_z * dh_fc1_z
+    b_fc1 -= db_fc1
+    dh_pool2_flat, dW_fc1 = np.multiply(derive_matmul(h_pool2_flat, W_fc1), dh_fc1_z)
+    dW_fc1 = np.divide(dW_fc1, BATCH_SIZE)
+    W_fc1 -= np.multiply(ALPHA, dW_fc1)
+    #h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
+    dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
+    #h_pool2 = max_pool(h_conv2)
+    dh_conv2 =
+
+
+def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
+    """
+    
+    :param x:
+    :return:
+    """
+    x_shape = np.shape(x)
+    k_shape = np.shape(ksize)
+    s_shape = np.shape(stride)
+    # 要求两个channel一样
+    assert x_shape[3] == k_shape[2]
+
+    # 为了直接使用pad_algorithm，需要对ksize进行维度调整
+    o_shape, x = pad_algorithm(x, np.transpose(ksize, [1, 2, 0, 3], stride, padding))
+    out = np.zeros(o_shape)
+
+    # batch
+    for b_i in range(o_shape[0]):
+        # 纵向
+        for h_i in range(o_shape[1]):
+            # 横向
+            for w_i in range(o_shape[2]):
+                # 过滤器
+                for f_i in range(o_shape[3]):
+                    out[b_i][h_i][w_i][f_i] = np.argmax(max(x[b_i][h_i * s_shape[1]:h_i * s_shape[1] + k_shape[1] + 1]
+                                                     [w_i * s_shape[2]: w_i * s_shape[2] + k_shape[2] + 1][:])
+    return out
+
+
+def derive_matmul(x, y):
+    """
+    np.matmul(x, y)
+    :param x:
+    :param y:
+    :return:
+    """
+    dx = np.sum(y, 1)
+    dy = np.sum(x, 0)
+    return dx, dy
+
+def derive_cross(y, y_):
+    """
+    loss函数的反向求导
+    :param y:
+    :param y_:
+    :return:
+    """
+    pass
+
+
+def derive_softmax(a, y):
+    """
+    softmax的反向求导
+    :param a: a = softmax(z)
+    :param y: 真实的标签
+    :return: 返回dz
+    """
+    return np.subtract(a, y)
+
+
+def derive_relu(x):
+    """
+    y = relu(x)
+    :return: dy/dx
+    """
+    return [1 if i > 0 else 0 for i in x.flat]
 
 
 def train():
