@@ -18,3 +18,8 @@ if __name__ == '__main__':
    print(np.divide([2, 2], 2))
    print(np.multiply([1, 2],2))
    print(2 *[1, 2])
+   a = [[[1, 4, 3]], [[1, 2, 3]]]
+   print(np.argmax(a[0][0:2][0:2]))
+   a, b = 1, 2
+   print((a,b) * 2)
+   print(np.ceil(1, dtype=int32))
