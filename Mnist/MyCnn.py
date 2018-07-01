@@ -25,16 +25,16 @@ def pad_algorithm(x, f, stride, padding):
 
     if padding.lower() == "same":
         # h/stride的上界
-        o_shape = [x_shape[0], np.ceil(x_shape[1]/stride[1]),
-                   np.ceil(x_shape[2]/stride[2]), f_shape[3]]
+        o_shape = [x_shape[0], int(np.ceil(x_shape[1]/stride[1])),
+                   int(np.ceil(x_shape[2]/stride[2])), f_shape[3]]
         # 对输入进行填充，取计算结果的上界
-        h_pad = np.ceil((stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]) / 2)
-        w_pad = np.ceil((stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]) / 2)
-        x = np.pad(x, [[0, 0], [np.ceil(h_pad/2), np.floor(h_pad/2)], [np.ceil(w_pad/2), np.floor(w_pad/2)], [0, 0]], 'constant', constant_values=0)
+        h_pad = int(np.ceil((stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]) / 2))
+        w_pad = int(np.ceil((stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]) / 2))
+        x = np.pad(x, [[0, 0], [int(np.ceil(h_pad/2)), int(np.floor(h_pad/2))], [int(np.ceil(w_pad/2)), int(np.floor(w_pad/2))], [0, 0]], 'constant', constant_values=(0, 0))
     elif padding.lower() == "valid":
         # (h-f/stride)+1的下界
-        o_shape = [x_shape[0], np.floor((x_shape[1] - f_shape[1]) / stride[1]) + 1,
-                        np.floor((x_shape[2] - f_shape[2]) / stride[2]) + 1, f_shape[3]]
+        o_shape = [x_shape[0], int(np.floor((x_shape[1] - f_shape[1]) / stride[1])) + 1,
+                   int(np.floor((x_shape[2] - f_shape[2]) / stride[2])) + 1, f_shape[3]]
     else:
         raise Exception("参数padding值{0}不合法，应该为same或valid".format(padding))
     return o_shape, x

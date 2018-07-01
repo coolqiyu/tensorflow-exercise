@@ -22,4 +22,4 @@ if __name__ == '__main__':
    print(np.argmax(a[0][0:2][0:2]))
    a, b = 1, 2
    print((a,b) * 2)
-   print(np.ceil(1, dtype=int32))
+   print(int(np.ceil(1)))
