@@ -11,25 +11,25 @@ IMAGE_WIDTH = 28
 CHANNEL = 1
 
 
-def pad_algorithm(x, f, stride, padding):
+def pad_algorithm(x, f_shape, stride, padding):
     """
     执行padding算法
     :param x: 4维数据[N, H, W, C]
-    :param f: 4维数据[H, W, InputC, OutputC]
+    :param f: 1维数据，表示过滤器的大小[H, W, InputC, OutputC]
     :param stride: [N, H, W, C]  N和C设置为1
     :param padding: same或valid
     :return: 返回pad算法后的数据张量的shape[N, H, W, C]，以及pad之后的x
     """
     x_shape = np.shape(x)
-    f_shape = np.shape(f)
+    #f_shape = np.shape(f)
 
     if padding.lower() == "same":
         # h/stride的上界
         o_shape = [x_shape[0], int(np.ceil(x_shape[1]/stride[1])),
                    int(np.ceil(x_shape[2]/stride[2])), f_shape[3]]
         # 对输入进行填充，取计算结果的上界
-        h_pad = int(np.ceil((stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]) / 2))
-        w_pad = int(np.ceil((stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]) / 2))
+        h_pad = int(np.ceil(stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]))
+        w_pad = int(np.ceil(stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]))
         x = np.pad(x, [[0, 0], [int(np.ceil(h_pad/2)), int(np.floor(h_pad/2))], [int(np.ceil(w_pad/2)), int(np.floor(w_pad/2))], [0, 0]], 'constant', constant_values=(0, 0))
     elif padding.lower() == "valid":
         # (h-f/stride)+1的下界
@@ -55,7 +55,7 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     # 要求两个channel一样
     assert x_shape[3] == f_shape[2]
 
-    o_shape, x = pad_algorithm(x, f, stride, padding)
+    o_shape, x = pad_algorithm(x, f_shape, stride, padding)
     out = np.zeros(o_shape)
 
     # batch
@@ -70,7 +70,7 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     return out
 
 
-def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
+def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
     """
     最大池化
     :param x: 4维数据[N, H, W, C]
@@ -83,7 +83,9 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
     k_shape = np.shape(ksize)
 
     # 为了直接使用pad_algorithm，需要对ksize进行维度调整
-    o_shape, x = pad_algorithm(x, np.transpose(ksize, [1, 2, 0, 3]), stride, padding)
+    nksize = np.zeros(4)
+    nksize[:] = ksize[1], ksize[2], ksize[0], ksize[3]
+    o_shape, x = pad_algorithm(x, nksize, stride, padding)
     o_shape[3] = x_shape[3]
     out = np.zeros(o_shape)
 
@@ -95,7 +97,7 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    out[b_i][h_i][w_i][f_i] = np.max(x[b_i,h_i * stride[1]:h_i * stride[1] + k_shape[1],w_i * stride[2]: w_i * stride[2] + k_shape[2],f_i])
+                    out[b_i][h_i][w_i][f_i] = np.max(x[b_i,h_i * stride[1]:h_i * stride[1] + ksize[1],w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
     return out
 
 
@@ -145,7 +147,7 @@ def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     # 要求两个channel一样
     assert x_shape[3] == f_shape[2]
 
-    o_shape, x = pad_algorithm(x, f, stride, padding)
+    o_shape, x = pad_algorithm(x, f_shape, stride, padding)
 
     # 纵向
     for h_i in range(x_shape[0]):
@@ -176,10 +178,12 @@ def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID")
     :return:
     """
     x_shape = np.shape(x)
-    k_shape = np.shape(ksize)
+    #k_shape = np.shape(ksize)
 
     # 为了直接使用pad_algorithm，需要对ksize进行维度调整
-    o_shape, x = pad_algorithm(x, np.transpose(ksize, [1, 2, 0, 3]), stride, padding)
+    nksize = np.zeros(4)
+    nksize[:] = ksize[1], ksize[2], ksize[0], ksize[3]
+    o_shape, x = pad_algorithm(x, nksize, stride, padding)
     o_shape[3] = x_shape[3]
     dx = np.zeros(x_shape)
 
@@ -191,9 +195,9 @@ def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID")
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    max_index = np.argmax(x[b_i,h_i * stride[1]:h_i * stride[1] + k_shape[1]]
-                                                     [w_i * stride[2]: w_i * stride[2] + k_shape[2],f_i])
-                    dx[b_i][h_i + max_index / k_shape[1]][w_i + max_index % k_shape[2]][f_i] = 1
+                    max_index = np.argmax(x[b_i,h_i * stride[1]:h_i * stride[1] + ksize[1]]
+                                                     [w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
+                    dx[b_i][h_i + max_index / ksize[1]][w_i + max_index % ksize[2]][f_i] = 1
     return dx
 
 
