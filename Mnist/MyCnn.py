@@ -66,7 +66,7 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
             for w_i in range(o_shape[2]):
                 #过滤器
                 for f_i in range(o_shape[3]):
-                    out[b_i][h_i][w_i][f_i] = np.sum(np.multiply(x[b_i][h_i * stride[1]:h_i * stride[1] + f_shape[0]][w_i * stride[2]: w_i * stride[2] + f_shape[1]][:], f[:][:][:][f_i]))
+                    out[b_i][h_i][w_i][f_i] = np.sum(np.multiply(x[b_i,h_i * stride[1]:h_i * stride[1] + f_shape[0],w_i * stride[2]: w_i * stride[2] + f_shape[1],:], f[:,:,:,f_i]))
     return out
 
 
@@ -95,8 +95,7 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    out[b_i][h_i][w_i][f_i] = np.max(x[b_i][h_i * stride[1]:h_i * stride[1] + k_shape[1]]
-                                                     [w_i * stride[2]: w_i * stride[2] + k_shape[2]][f_i])
+                    out[b_i][h_i][w_i][f_i] = np.max(x[b_i,h_i * stride[1]:h_i * stride[1] + k_shape[1],w_i * stride[2]: w_i * stride[2] + k_shape[2],f_i])
     return out
 
 
@@ -117,7 +116,7 @@ def softmax(x):
     result = np.zeros(np.shape(x))
     for b_i in range(len(x)):
         for i in range(len(x[0])):
-            result[b_i][i] = x[b_i][i] / x_exp_sum[b_i]
+            result[b_i][i] = x[b_i,i] / x_exp_sum[b_i]
 
 
 def loss(y, y_):
@@ -154,7 +153,7 @@ def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
         for w_i in range(x_shape[1]):
             # channel
             for c_i in range(x_shape[2]):
-                df[h_i][w_i][c_i] = np.divide(np.sum(x[:][h_i::stride[1]][w_i::stride[2]][:]), len(x))
+                df[h_i][w_i][c_i] = np.divide(np.sum(x[:,h_i::stride[1],w_i::stride[2],:]), len(x))
 
     # batch
     for b_i in range(o_shape[0]):
@@ -165,8 +164,8 @@ def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
                 sum = np.zeros(np.shape(f))
                 # 过滤器
                 for f_i in range(o_shape[3]):
-                    sum = np.add(sum, f[:][:][:][f_i])
-                dx[b_i][h_i:h_i + f_shape[0]][w_i: w_i + f_shape[1]][:] = np.add(dx[b_i][h_i:h_i + f_shape[0]][w_i: w_i + f_shape[1]][:], sum)
+                    sum = np.add(sum, f[:,:,:,f_i])
+                dx[b_i,h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:] = np.add(dx[b_i,h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:], sum)
     return dx, df
 
 
@@ -192,8 +191,8 @@ def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID")
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    max_index = np.argmax(x[b_i][h_i * stride[1]:h_i * stride[1] + k_shape[1]]
-                                                     [w_i * stride[2]: w_i * stride[2] + k_shape[2]][f_i])
+                    max_index = np.argmax(x[b_i,h_i * stride[1]:h_i * stride[1] + k_shape[1]]
+                                                     [w_i * stride[2]: w_i * stride[2] + k_shape[2],f_i])
                     dx[b_i][h_i + max_index / k_shape[1]][w_i + max_index % k_shape[2]][f_i] = 1
     return dx
 
