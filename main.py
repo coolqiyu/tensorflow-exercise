@@ -23,3 +23,8 @@ if __name__ == '__main__':
    a, b = 1, 2
    print((a,b) * 2)
    print(int(np.ceil(1)))
+   a,b = np.multiply((1, 2), 2)
+   print(a)
+   print(b)
+   a = [[1, 2, 3], [2, 3, 4]]
+   print(np.transpose(a, (1, 0)))

@@ -109,16 +109,17 @@ def relu(x):
 def softmax(x):
     """
     对x执行softmax函数，并输出
-    :param x:
+    :param x: [batch_size, class_cnt]
     :return:
     """
     x_exp = np.exp(x)
     x_shape = np.shape(x)
-    x_exp_sum = np.sum(x, len(x) - 1)
-    result = np.zeros(np.shape(x))
-    for b_i in range(len(x)):
-        for i in range(len(x[0])):
+    x_exp_sum = np.sum(x_exp, 1)
+    result = np.zeros(x_shape)
+    for b_i in range(x_shape[0]):
+        for i in range(x_shape[1]):
             result[b_i][i] = x[b_i,i] / x_exp_sum[b_i]
+    return result
 
 
 def loss(y, y_):
@@ -201,15 +202,17 @@ def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID")
     return dx
 
 
-def derive_matmul(x, y):
+def derive_matmul(x, y, dz=0):
     """
-    np.matmul(x, y)
+    z = np.matmul(x, y)
     :param x:
     :param y:
     :return:
     """
-    dx = np.sum(y, 1)
-    dy = np.sum(x, 0)
+    dx = np.repeat(np.sum(y, 1), len(x))
+    dy = np.repeat(np.sum(x, 0), len(y))
+    dx = np.matmul(np.transpose(dz, (1, 0)), dx)
+    dy = np.matmul(dy, np.transpose(dx, (1, 0)))
     return dx, dy
 
 def derive_cross(y, y_):
@@ -287,18 +290,19 @@ def nn(x, y):
     dz = derive_softmax(y_conv, y)
     # z = np.matmul(h_fc1, W_fc2) + b_fc2
     db_fc2 = dz
-    b_fc2 -= np.multiply(ALPHA, db_fc2)
-    dh_fc1, dW_fc2 = np.multiply(derive_matmul(h_fc1, W_fc2), dz)
+    b_fc2 = np.subtract(b_fc2, np.multiply(ALPHA, db_fc2))
+    dh_fc1, dW_fc2 = derive_matmul(h_fc1, W_fc2, dz)
+
     dW_fc2 = np.divide(dW_fc2, BATCH_SIZE)
-    W_fc2 -= np.multiply(ALPHA, dW_fc2)
+    W_fc2 = np.subtract(W_fc2, np.multiply(ALPHA, dW_fc2))
     # h_fc1 = relu(h_fc1_z)
     dh_fc1_z = derive_relu(h_fc1_z) * dh_fc1
     # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
     db_fc1 = dh_fc1_z * dh_fc1_z
-    b_fc1 -= db_fc1
+    b_fc1 = np.subtract(b_fc1, db_fc1)
     dh_pool2_flat, dW_fc1 = np.multiply(derive_matmul(h_pool2_flat, W_fc1), dh_fc1_z)
     dW_fc1 = np.divide(dW_fc1, BATCH_SIZE)
-    W_fc1 -= np.multiply(ALPHA, dW_fc1)
+    W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
     # h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
     dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
     # h_pool2 = max_pool(h_conv2)
@@ -309,9 +313,9 @@ def nn(x, y):
     dh_pool1, dW_conv2 = derive_conv2d(h_pool1, W_conv2)
     dh_pool1 = np.multiply(dh_pool1, dh_conv2_z)
     dW_conv2 = np.multiply(dW_conv2, dh_conv2_z)
-    W_conv2 -= np.multiply(ALPHA, dW_conv2)
+    W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv2))
     db_conv2 = dh_conv2_z
-    b_conv2 -= np.multiply(ALPHA, db_conv2)
+    b_conv2 = np.subtract(b_conv2, np.multiply(ALPHA, db_conv2))
     # h_pool1 = max_pool(h_conv1)
     dh_conv1 = np.multiply(dh_pool1, derive_max_pool(h_conv1))
     # h_conv1 = relu(h_conv1_z)
@@ -319,9 +323,9 @@ def nn(x, y):
     # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
     _, dW_conv1 = derive_conv2d(x_image, W_conv1)
     dW_conv1 = np.multiply(dW_conv1, dh_conv1_z)
-    W_conv2 -= np.multiply(ALPHA, dW_conv1)
+    W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv1))
     db_conv1 = dh_conv1_z
-    b_conv1 -= np.multiply(ALPHA, db_conv1)
+    b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))
     
     
 def train():
