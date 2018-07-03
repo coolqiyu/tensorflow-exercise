@@ -130,8 +130,10 @@ def accuracy(y, y_):
     pass
 
 
-def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
+def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
     """
+    y = conv2d(x)
+    这个还没有计算好！！！！，要在看一下
     x为输入数据，f为卷积过滤器
     :param x: 4维数据[N, H, W, C]
     :param f: 4维数据[H, W, InputC, OutputC]
@@ -146,18 +148,20 @@ def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     # f的求导
     df = np.zeros(f_shape)
     # 要求两个channel一样
-    assert x_shape[3] == f_shape[2]
 
     o_shape, x = pad_algorithm(x, f_shape, stride, padding)
+    x_shape = np.shape(x)
 
     # 纵向
-    for h_i in range(x_shape[0]):
+    for h_i in range(f_shape[0]):
         # 横向
-        for w_i in range(x_shape[1]):
-            # channel
-            for c_i in range(x_shape[2]):
-                df[h_i][w_i][c_i] = np.divide(np.sum(x[:,h_i::stride[1],w_i::stride[2],:]), len(x))
-
+        for w_i in range(f_shape[1]):
+            # filter
+            for f_i in range(f_shape[3]):
+                print(h_i, w_i, f_i)
+                # 每次访问下一个x的位置是正确的(+stride)，但是没有考虑到边界，最大的不总是最后一个，filter的占位
+                df[h_i][w_i][:, f_i] = np.divide(np.sum(np.multiply(x[:, h_i:x_shape[1] - f_shape[0] + h_i + 1: stride[1],
+                                                                    w_i:x_shape[2] - f_shape[1] + w_i + 1:stride[2], :], dy[:, :, :, f_i : f_i+1]), (0, 1, 2)), x_shape[0])
     # batch
     for b_i in range(o_shape[0]):
         # 纵向
@@ -172,9 +176,9 @@ def derive_conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     return dx, df
 
 
-def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID"):
+def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
     """
-    
+    y = max_pool(x)
     :param x:
     :return:
     """
@@ -196,23 +200,28 @@ def derive_max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 3, 1], padding="VALID")
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    max_index = np.argmax(x[b_i,h_i * stride[1]:h_i * stride[1] + ksize[1]]
-                                                     [w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
-                    dx[b_i][h_i + max_index / ksize[1]][w_i + max_index % ksize[2]][f_i] = 1
+                    max_index = np.argmax(x[b_i, h_i * stride[1]:h_i * stride[1] + ksize[1],
+                                                     w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
+                    dx[b_i][h_i + max_index // ksize[1]][w_i + max_index % ksize[2]][f_i] = dy[b_i][h_i][w_i][f_i]
     return dx
 
 
 def derive_matmul(x, y, dz=0):
     """
     z = np.matmul(x, y)
+    反向求导时，dx = dz/dx * dL/dz 要注意不是直接元素乘也不是矩阵乘，应该看不同的y对应不同的dz
     :param x:
     :param y:
     :return:
     """
-    dx = np.repeat(np.sum(y, 1), len(x))
-    dy = np.repeat(np.sum(x, 0), len(y))
-    dx = np.matmul(np.transpose(dz, (1, 0)), dx)
-    dy = np.matmul(dy, np.transpose(dx, (1, 0)))
+    dx = []
+    x_len = len(x)
+    for i in range(x_len):
+        dx.append(np.sum(np.multiply(y, dz[i]), 1))
+    dy = np.zeros(np.shape(y))
+
+    for i in range(len(y[0])):
+        dy[:, i] = np.sum(np.multiply(x, np.reshape(dz[:, i], [-1, 1])), 0)
     return dx, dy
 
 def derive_cross(y, y_):
@@ -240,7 +249,7 @@ def derive_relu(x):
     y = relu(x)
     :return: dy/dx
     """
-    return [1 if i > 0 else 0 for i in x.flat]
+    return np.reshape([1 if i > 0 else 0 for i in x.flat], np.shape(x))
 
 
 def nn(x, y):
@@ -300,29 +309,26 @@ def nn(x, y):
     # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
     db_fc1 = dh_fc1_z * dh_fc1_z
     b_fc1 = np.subtract(b_fc1, db_fc1)
-    dh_pool2_flat, dW_fc1 = np.multiply(derive_matmul(h_pool2_flat, W_fc1), dh_fc1_z)
+    dh_pool2_flat, dW_fc1 = derive_matmul(h_pool2_flat, W_fc1, dh_fc1_z)
     dW_fc1 = np.divide(dW_fc1, BATCH_SIZE)
     W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
     # h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
     dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
     # h_pool2 = max_pool(h_conv2)
-    dh_conv2 = np.multiply(dh_pool2, derive_max_pool(h_conv2))
+    dh_conv2 = derive_max_pool(dh_pool2, h_conv2)
     # h_conv2 = relu(h_conv2_z)
     dh_conv2_z = np.multiply(dh_conv2, derive_relu(h_conv2_z))
     # h_conv2_z = conv2d(h_pool1, W_conv2) + b_conv2
-    dh_pool1, dW_conv2 = derive_conv2d(h_pool1, W_conv2)
-    dh_pool1 = np.multiply(dh_pool1, dh_conv2_z)
-    dW_conv2 = np.multiply(dW_conv2, dh_conv2_z)
+    dh_pool1, dW_conv2 = derive_conv2d(dh_conv2_z, h_pool1, W_conv2)
     W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv2))
     db_conv2 = dh_conv2_z
     b_conv2 = np.subtract(b_conv2, np.multiply(ALPHA, db_conv2))
     # h_pool1 = max_pool(h_conv1)
-    dh_conv1 = np.multiply(dh_pool1, derive_max_pool(h_conv1))
+    dh_conv1 = derive_max_pool(dh_pool1, h_conv1)
     # h_conv1 = relu(h_conv1_z)
     dh_conv1_z = np.multiply(dh_conv1, derive_relu(h_conv1_z))
     # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
-    _, dW_conv1 = derive_conv2d(x_image, W_conv1)
-    dW_conv1 = np.multiply(dW_conv1, dh_conv1_z)
+    _, dW_conv1 = derive_conv2d(dh_conv1_z, x_image, W_conv1)
     W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv1))
     db_conv1 = dh_conv1_z
     b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))

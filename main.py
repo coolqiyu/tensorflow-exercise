@@ -28,3 +28,4 @@ if __name__ == '__main__':
    print(b)
    a = [[1, 2, 3], [2, 3, 4]]
    print(np.transpose(a, (1, 0)))
+   print([1, 2,3] *2)
