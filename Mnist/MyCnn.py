@@ -18,11 +18,11 @@ def pad_algorithm(x, f_shape, stride, padding):
     :param f: 1维数据，表示过滤器的大小[H, W, InputC, OutputC]
     :param stride: [N, H, W, C]  N和C设置为1
     :param padding: same或valid
-    :return: 返回pad算法后的数据张量的shape[N, H, W, C]，以及pad之后的x
+    :return: 返回pad算法后的数据张量的shape[N, H, W, C]，以及pad之后的x, pad时对x进行padding的大小
     """
     x_shape = np.shape(x)
     #f_shape = np.shape(f)
-
+    pad = np.zeros((4, 2))
     if padding.lower() == "same":
         # h/stride的上界
         o_shape = [x_shape[0], int(np.ceil(x_shape[1]/stride[1])),
@@ -30,14 +30,15 @@ def pad_algorithm(x, f_shape, stride, padding):
         # 对输入进行填充，取计算结果的上界
         h_pad = int(np.ceil(stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]))
         w_pad = int(np.ceil(stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]))
-        x = np.pad(x, [[0, 0], [int(np.ceil(h_pad/2)), int(np.floor(h_pad/2))], [int(np.ceil(w_pad/2)), int(np.floor(w_pad/2))], [0, 0]], 'constant', constant_values=(0, 0))
+        pad = [[0, 0], [int(np.ceil(h_pad/2)), int(np.floor(h_pad/2))], [int(np.ceil(w_pad/2)), int(np.floor(w_pad/2))], [0, 0]]
+        x = np.pad(x, pad, 'constant', constant_values=(0, 0))
     elif padding.lower() == "valid":
         # (h-f/stride)+1的下界
-        o_shape = [x_shape[0], int(np.floor((x_shape[1] - f_shape[1]) / stride[1])) + 1,
-                   int(np.floor((x_shape[2] - f_shape[2]) / stride[2])) + 1, f_shape[3]]
+        o_shape = [x_shape[0], int(np.floor((x_shape[1] - f_shape[0]) / stride[1])) + 1,
+                   int(np.floor((x_shape[2] - f_shape[1]) / stride[2])) + 1, f_shape[3]]
     else:
         raise Exception("参数padding值{0}不合法，应该为same或valid".format(padding))
-    return o_shape, x
+    return o_shape, x, pad
 
 
 def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
@@ -55,7 +56,7 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     # 要求两个channel一样
     assert x_shape[3] == f_shape[2]
 
-    o_shape, x = pad_algorithm(x, f_shape, stride, padding)
+    o_shape, x, _ = pad_algorithm(x, f_shape, stride, padding)
     out = np.zeros(o_shape)
 
     # batch
@@ -85,7 +86,7 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
     # 为了直接使用pad_algorithm，需要对ksize进行维度调整
     nksize = np.zeros(4)
     nksize[:] = ksize[1], ksize[2], ksize[0], ksize[3]
-    o_shape, x = pad_algorithm(x, nksize, stride, padding)
+    o_shape, x, _ = pad_algorithm(x, nksize, stride, padding)
     o_shape[3] = x_shape[3]
     out = np.zeros(o_shape)
 
@@ -123,8 +124,12 @@ def softmax(x):
 
 
 def loss(y, y_):
-    pass
-
+    y_shape = np.shape(y)
+    d = 1
+    for i in range(y_shape[0]):
+        d *= y_shape[1]
+    cost = np.sum(np.multiply(-y, np.log2(y_))) / d
+    return cost
 
 def accuracy(y, y_):
     pass
@@ -133,7 +138,6 @@ def accuracy(y, y_):
 def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
     """
     y = conv2d(x)
-    这个还没有计算好！！！！，要在看一下
     x为输入数据，f为卷积过滤器
     :param x: 4维数据[N, H, W, C]
     :param f: 4维数据[H, W, InputC, OutputC]
@@ -141,39 +145,34 @@ def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
     :param padding: same或valid
     :return: dx, df
     """
-    x_shape = np.shape(x)
-    # x的求导
-    dx = np.zeros(x_shape)
     f_shape = np.shape(f)
     # f的求导
     df = np.zeros(f_shape)
     # 要求两个channel一样
 
-    o_shape, x = pad_algorithm(x, f_shape, stride, padding)
+    o_shape, x, pad = pad_algorithm(x, f_shape, stride, padding)
     x_shape = np.shape(x)
-
+    dx = np.zeros(x_shape)
+    # 对f进行求导
     # 纵向
     for h_i in range(f_shape[0]):
         # 横向
         for w_i in range(f_shape[1]):
             # filter
             for f_i in range(f_shape[3]):
-                print(h_i, w_i, f_i)
                 # 每次访问下一个x的位置是正确的(+stride)，但是没有考虑到边界，最大的不总是最后一个，filter的占位
                 df[h_i][w_i][:, f_i] = np.divide(np.sum(np.multiply(x[:, h_i:x_shape[1] - f_shape[0] + h_i + 1: stride[1],
                                                                     w_i:x_shape[2] - f_shape[1] + w_i + 1:stride[2], :], dy[:, :, :, f_i : f_i+1]), (0, 1, 2)), x_shape[0])
+    # 对x进行求导
+    # 如果用x原始大小来计算：则第一次计算中f不一定从0开始，所以这里用pad过的x大小计算，最后返回时进行切片
     # batch
-    for b_i in range(o_shape[0]):
+    for b_i in range(x_shape[0]):
         # 纵向
-        for h_i in range(o_shape[1]):
+        for h_i in range(0, x_shape[1] - f_shape[0] + 1, stride[1]):
             # 横向
-            for w_i in range(o_shape[2]):
-                sum = np.zeros(np.shape(f))
-                # 过滤器
-                for f_i in range(o_shape[3]):
-                    sum = np.add(sum, f[:,:,:,f_i])
-                dx[b_i,h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:] = np.add(dx[b_i,h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:], sum)
-    return dx, df
+            for w_i in range(0, x_shape[2] - f_shape[1] + 1, stride[2]):
+                dx[b_i][h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:] = np.add(dx[b_i][h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:], np.sum(np.multiply(f[:,:,:,:], dy[b_i][h_i][w_i]),3))
+    return dx[:, pad[1][0]: x_shape[1] - pad[1][1], pad[2][0]: x_shape[2] - pad[2][1], :], df
 
 
 def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
@@ -188,7 +187,7 @@ def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VAL
     # 为了直接使用pad_algorithm，需要对ksize进行维度调整
     nksize = np.zeros(4)
     nksize[:] = ksize[1], ksize[2], ksize[0], ksize[3]
-    o_shape, x = pad_algorithm(x, nksize, stride, padding)
+    o_shape, x, _ = pad_algorithm(x, nksize, stride, padding)
     o_shape[3] = x_shape[3]
     dx = np.zeros(x_shape)
 
@@ -329,7 +328,7 @@ def nn(x, y):
     dh_conv1_z = np.multiply(dh_conv1, derive_relu(h_conv1_z))
     # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
     _, dW_conv1 = derive_conv2d(dh_conv1_z, x_image, W_conv1)
-    W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv1))
+    W_conv1 = np.subtract(W_conv1, np.multiply(ALPHA, dW_conv1))
     db_conv1 = dh_conv1_z
     b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))
     
@@ -341,6 +340,7 @@ def train():
         x = np.reshape(x, [BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])
         y_conv = nn(x, y)
         cross_entropy = loss(y, y_conv)
+        print(cross_entropy)
         # 怎么把每次的反向就放s
 
 
