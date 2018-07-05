@@ -151,6 +151,7 @@ class NN:
         db = Mat.zeros((1, class_cnt))
         dw = Mat.zeros((feature_cnt, class_cnt))
 
+        # 对softmax求导，对b求导并更新
         for i in range(class_cnt):
             for batch_index in range(batch_size):
                 #dz = a - y
@@ -161,7 +162,7 @@ class NN:
             db[0][i] = db[0][i]/batch_size
             b[0][i] = b[0][i] - alpha * db[0][i]
 
-
+        # 对wx+b中的w求导，并更新
         for i in range(feature_cnt):
             for j in range(class_cnt):
                 for batch_index in range(batch_size):

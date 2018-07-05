@@ -103,8 +103,13 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
 
 
 def relu(x):
-    # 按照元素计算绝对值
-    return np.absolute(x)
+    """
+    y = relu(x)
+    小于0时为0，大于0时y=x
+    :param x:
+    :return:
+    """
+    return np.reshape([i if i > 0 else 0 for i in x.flatten()], np.shape(x))
 
 
 def softmax(x):
@@ -119,7 +124,7 @@ def softmax(x):
     result = np.zeros(x_shape)
     for b_i in range(x_shape[0]):
         for i in range(x_shape[1]):
-            result[b_i][i] = x[b_i,i] / x_exp_sum[b_i]
+            result[b_i][i] = np.exp(x[b_i,i]) / x_exp_sum[b_i]
     return result
 
 
@@ -178,6 +183,8 @@ def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
 def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
     """
     y = max_pool(x)
+    max pool中没有要学习的参数，所以只要吧误差传递到上一层即可，没有梯度计算。
+    下一层的误差项的值会原封不动的传递到上一层对应区块中的最大值所对应的神经元，而其他神经元的误差项的值都是0
     :param x:
     :return:
     """
@@ -199,13 +206,16 @@ def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VAL
             for w_i in range(o_shape[2]):
                 # channel
                 for f_i in range(o_shape[3]):
-                    max_index = np.argmax(x[b_i, h_i * stride[1]:h_i * stride[1] + ksize[1],
-                                                     w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
-                    dx[b_i][h_i + max_index // ksize[1]][w_i + max_index % ksize[2]][f_i] = dy[b_i][h_i][w_i][f_i]
+                    # 在一定区域内的计算，起始位置不总是h_i, w_i
+                    start_h = h_i * stride[1]
+                    start_w = w_i * stride[2]
+                    max_index = np.argmax(x[b_i, start_h: start_h + ksize[1],
+                                          start_w: start_w + ksize[2],f_i])
+                    dx[b_i][start_h + max_index // ksize[1]][start_w + max_index % ksize[2]][f_i] = dy[b_i][h_i][w_i][f_i]
     return dx
 
 
-def derive_matmul(x, y, dz=0):
+def derive_matmul(x, y, dz):
     """
     z = np.matmul(x, y)
     反向求导时，dx = dz/dx * dL/dz 要注意不是直接元素乘也不是矩阵乘，应该看不同的y对应不同的dz
@@ -257,14 +267,13 @@ def nn(x, y):
     :param x: 输入
     :return:
     """
-    BATCH_SIZE = len(x)
     ALPHA = 0.1
 
     # 第一层卷积
     W_conv1 = np.zeros([5, 5, 1, 32])  # 5*5*1
     b_conv1 = np.zeros([32])  # 32
     # x变成一个4d向量，其第2、第3维对应图片的宽、高，最后一维代表图片的颜色通道数(因为是灰度图所以这里的通道数为1，如果是rgb彩色图，则为3)
-    x_image = np.reshape(x, [-1, 28, 28, 1])  # 28*28*1
+    x_image = np.reshape(x, [-1, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])  # 28*28*1
     # x_image和权值向量进行卷积，加上偏置项，然后应用ReLU激活函数，最后进行max pooling
     h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
     h_conv1 = relu(h_conv1_z)  # 28*28*32
@@ -277,7 +286,7 @@ def nn(x, y):
     h_conv2 = relu(h_conv2_z)
     h_pool2 = max_pool(h_conv2)  # 7*7*64
 
-    # 全连接层
+    # 全连接层，转换成全连接层时，只是把一个batch中的展开
     W_fc1 = np.zeros([7 * 7 * 64, 1024])
     b_fc1 = np.zeros([1024])
     h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])  # 把h_pool2变成一维7*7*64行

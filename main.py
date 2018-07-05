@@ -27,7 +27,7 @@ if __name__ == '__main__':
    print(a)
    print(b)
    a = [[1, 2, 3], [2, 3, 4]]
-   list
+
    print(np.transpose(a, (1, 0)))
    print([1, 2,3] *2)
    expect = [12, 24, 24, 24, 48, 48, 24, 48, 48]
