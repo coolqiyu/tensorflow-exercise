@@ -44,7 +44,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 #from tensorflow.models.image.cifar10 import cifar10
-from cifar import cifar10
+from AlexNet_like import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 # 用于支持接受命令行传递参数，相当于接受argv

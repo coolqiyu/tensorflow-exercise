@@ -2,7 +2,7 @@
 # 这个文件使用纯Python写一个网络，不借助tf或np
 ##################################
 import math
-from . import input_data
+from common import input_data
 
 MAX_NUM = 1.79e+307
 MIN_NUM = -1.79e+307
@@ -12,7 +12,7 @@ def my_mnist_train():
     :return:
     """
     # 读取数据
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+    mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
 
     # 图像的大小
     width = 28
@@ -366,3 +366,6 @@ class Shape:
             size = i
 
         return data
+
+if __name__ == "__main__":
+    my_mnist_train()

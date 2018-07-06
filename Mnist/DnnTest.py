@@ -132,11 +132,28 @@ class MyCnnTest(unittest.TestCase):
         self.assertTrue((expect == result).all())
 
     def test_derive_matmul(self):
-        x = np.full((2, 5), 2)
-        y = np.full((5, 3), 2)
-        dz = np.full((2, 3), 1)
-        
+        x = np.concatenate((np.full((1, 5), 1), np.full((1, 5), 2)), 0)
+        y = np.concatenate((np.full((5, 1), 1), np.full((5, 1), 2), np.full((5, 1), 1)), 1)
+        dz = np.concatenate((np.full((1, 3), 0), np.full((1, 3), 1)), 0)
+        dx_expect = [0, 0, 0, 0, 0, 4, 4, 4, 4, 4]
+        dy_expect = np.full((5, 3), 2).flatten()
+        dx, dy = MyCnn.derive_matmul(x, y, dz)
+        dx = np.array(dx).flatten()
+        dy = np.array(dy).flatten()
+        self.assertTrue((dx == dx_expect).all())
+        self.assertTrue((dy == dy_expect).all())
 
+    def test_loss_01(self):
+        cost = MyCnn.loss([[2]], [[2]])
+        expect = [-2]
+        self.assertTrue((cost == expect).all())
+
+    def test_loss_02(self):
+        y = np.full((2, 2), 2)
+        y_ = np.full((2, 2), 2)
+        cost = MyCnn.loss(y, y_)
+        expect = [-2, -2]
+        self.assertTrue((cost == expect).all())
 
 if __name__ == "__main__":
     unittest.main()

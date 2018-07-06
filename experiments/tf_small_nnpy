@@ -3,7 +3,7 @@
 #==================================================
 
 import tensorflow as tf
-from . import input_data
+from common import input_data
 
 DEBUG = True
 

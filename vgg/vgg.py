@@ -1,7 +1,6 @@
 # vgg-16网络
 import tensorflow as tf
-import Mnist.input_data as input_data
-from tensorflow.python import debug as tfdbg
+import common.input_data as input_data
 
 BATCH_SIZE = 100
 IMAGE_WIDTH = 28

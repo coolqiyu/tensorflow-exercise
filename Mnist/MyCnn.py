@@ -2,15 +2,18 @@
 # 用numpy实现minist的卷积网络
 # =================================
 import numpy as np
-import input_data
+from common import input_data
 
 
 BATCH_SIZE = 10
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 CHANNEL = 1
-
-
+ALPHA = 0.1
+W_conv1 = b_conv1 = h_conv1_z = h_conv1 = h_pool1 = 0
+W_conv2 = b_conv2 = h_conv2_z = h_conv2 = h_pool2 = 0
+W_fc1 = b_fc1 = h_pool2_flat = h_fc1_z = h_fc1 = 0
+W_fc2 = b_fc2 = 0
 def pad_algorithm(x, f_shape, stride, padding):
     """
     执行padding算法
@@ -131,13 +134,27 @@ def softmax(x):
 def loss(y, y_):
     y_shape = np.shape(y)
     d = 1
-    for i in range(y_shape[0]):
-        d *= y_shape[1]
-    cost = np.sum(np.multiply(-y, np.log2(y_))) / d
+    for i in y_shape:
+        d *= i
+    cost = np.divide(np.sum(np.multiply(np.multiply(-1, y), np.log2(y_))), d)
     return cost
 
 def accuracy(y, y_):
-    pass
+    """
+    对y和y_比较，判断是否正确性
+    :param y: [size, class_cnt]
+    :param y_: [size, class_cnt]
+    :return:
+    """
+    batch_size = np.shape(y)[0]
+    # 真实和预测结果相同的个数
+    same_cnt = 0
+    for i in range(batch_size):
+        right_index = np.argmax(y[i])
+        predict_index = np.argmax(y_[i])
+        if right_index == predict_index:
+            same_cnt += 1
+    return same_cnt / batch_size
 
 
 def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
@@ -189,7 +206,6 @@ def derive_max_pool(dy, x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VAL
     :return:
     """
     x_shape = np.shape(x)
-    #k_shape = np.shape(ksize)
 
     # 为了直接使用pad_algorithm，需要对ksize进行维度调整
     nksize = np.zeros(4)
@@ -260,18 +276,90 @@ def derive_relu(x):
     """
     return np.reshape([1 if i > 0 else 0 for i in x.flat], np.shape(x))
 
-
-def nn(x, y):
+def init_variable():
     """
-    网络结构
-    :param x: 输入
+    对参数进行初始化
     :return:
     """
-    ALPHA = 0.1
-
-    # 第一层卷积
+    global W_conv1, b_conv1
     W_conv1 = np.zeros([5, 5, 1, 32])  # 5*5*1
     b_conv1 = np.zeros([32])  # 32
+    global W_conv2, b_conv2
+    W_conv2 = np.zeros([5, 5, 32, 64])  # 5*5*32
+    b_conv2 = np.zeros([64])  # 64
+    global W_fc1, b_fc1
+    W_fc1 = np.zeros([7 * 7 * 64, 1024])
+    b_fc1 = np.zeros([1024])
+    global W_fc2, b_fc2
+    W_fc2 = np.zeros([1024, 10])
+    b_fc2 = np.zeros([10])
+
+def back_prop(x_image, y, y_conv):
+    """
+     反向求导更新
+     :param: x_image 输入
+     :param: y 真实的输出label
+     :param: y_conv 预测的结果
+    :return:
+    """
+    global W_conv1, b_conv1, h_conv1_z, h_conv1, h_pool1
+    global W_conv2, b_conv2, h_conv2_z, h_conv2, h_pool2
+    global W_fc1, b_fc1, h_pool2_flat, h_fc1_z, h_fc1
+    global W_fc2, b_fc2
+    # y_conv=softmax(z)
+    dz = derive_softmax(y_conv, y)
+
+    # z = np.matmul(h_fc1, W_fc2) + b_fc2
+    db_fc2 = dz
+    b_fc2 = np.subtract(b_fc2, np.multiply(ALPHA, db_fc2))
+    dh_fc1, dW_fc2 = derive_matmul(h_fc1, W_fc2, dz)
+    W_fc2 = np.subtract(W_fc2, np.multiply(ALPHA, dW_fc2))
+
+    # h_fc1 = relu(h_fc1_z)
+    dh_fc1_z = derive_relu(h_fc1_z) * dh_fc1
+
+    # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
+    db_fc1 = dh_fc1_z * dh_fc1_z
+    b_fc1 = np.subtract(b_fc1, db_fc1)
+    dh_pool2_flat, dW_fc1 = derive_matmul(h_pool2_flat, W_fc1, dh_fc1_z)
+    W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
+
+    # h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
+    dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
+
+    # h_pool2 = max_pool(h_conv2)
+    dh_conv2 = derive_max_pool(dh_pool2, h_conv2)
+
+    # h_conv2 = relu(h_conv2_z)
+    dh_conv2_z = np.multiply(dh_conv2, derive_relu(h_conv2_z))
+
+    # h_conv2_z = conv2d(h_pool1, W_conv2) + b_conv2
+    dh_pool1, dW_conv2 = derive_conv2d(dh_conv2_z, h_pool1, W_conv2)
+    W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv2))
+    db_conv2 = dh_conv2_z
+    b_conv2 = np.subtract(b_conv2, np.multiply(ALPHA, db_conv2))
+
+    # h_pool1 = max_pool(h_conv1)
+    dh_conv1 = derive_max_pool(dh_pool1, h_conv1)
+
+    # h_conv1 = relu(h_conv1_z)
+    dh_conv1_z = np.multiply(dh_conv1, derive_relu(h_conv1_z))
+
+    # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
+    _, dW_conv1 = derive_conv2d(dh_conv1_z, x_image, W_conv1)
+    W_conv1 = np.subtract(W_conv1, np.multiply(ALPHA, dW_conv1))
+    db_conv1 = dh_conv1_z
+    b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))
+
+def forward_prop(x, y):
+    """
+    前向计算
+    :param x: 输入
+    :param y: 输出的label
+    :return:
+    """
+    # 第一层卷积
+    global W_conv1, b_conv1, h_conv1_z, h_conv1, h_pool1
     # x变成一个4d向量，其第2、第3维对应图片的宽、高，最后一维代表图片的颜色通道数(因为是灰度图所以这里的通道数为1，如果是rgb彩色图，则为3)
     x_image = np.reshape(x, [-1, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])  # 28*28*1
     # x_image和权值向量进行卷积，加上偏置项，然后应用ReLU激活函数，最后进行max pooling
@@ -280,78 +368,40 @@ def nn(x, y):
     h_pool1 = max_pool(h_conv1)  # 14*14*32
 
     # 第二层卷积
-    W_conv2 = np.zeros([5, 5, 32, 64])  # 5*5*32
-    b_conv2 = np.zeros([64])  # 64
+    global W_conv2, b_conv2, h_conv2_z, h_conv2, h_pool2
     h_conv2_z = conv2d(h_pool1, W_conv2) + b_conv2  # 14*14*64
     h_conv2 = relu(h_conv2_z)
     h_pool2 = max_pool(h_conv2)  # 7*7*64
 
     # 全连接层，转换成全连接层时，只是把一个batch中的展开
-    W_fc1 = np.zeros([7 * 7 * 64, 1024])
-    b_fc1 = np.zeros([1024])
+    global W_fc1, b_fc1, h_pool2_flat, h_fc1_z, h_fc1
     h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])  # 把h_pool2变成一维7*7*64行
     h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
     h_fc1 = relu(h_fc1_z)  # 1024
 
     # 输出层 softmax
-    W_fc2 = np.zeros([1024, 10])
-    b_fc2 = np.zeros([10])
+    global W_fc2, b_fc2
     # y_conv是结果
     y_conv = softmax(np.matmul(h_fc1, W_fc2) + b_fc2)
-
-    # loss函数
-    cross_entropy = loss(y, y_conv)
-
-    # 反向求导更新
-    # y_conv=softmax(z)
-    dz = derive_softmax(y_conv, y)
-    # z = np.matmul(h_fc1, W_fc2) + b_fc2
-    db_fc2 = dz
-    b_fc2 = np.subtract(b_fc2, np.multiply(ALPHA, db_fc2))
-    dh_fc1, dW_fc2 = derive_matmul(h_fc1, W_fc2, dz)
-
-    dW_fc2 = np.divide(dW_fc2, BATCH_SIZE)
-    W_fc2 = np.subtract(W_fc2, np.multiply(ALPHA, dW_fc2))
-    # h_fc1 = relu(h_fc1_z)
-    dh_fc1_z = derive_relu(h_fc1_z) * dh_fc1
-    # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
-    db_fc1 = dh_fc1_z * dh_fc1_z
-    b_fc1 = np.subtract(b_fc1, db_fc1)
-    dh_pool2_flat, dW_fc1 = derive_matmul(h_pool2_flat, W_fc1, dh_fc1_z)
-    dW_fc1 = np.divide(dW_fc1, BATCH_SIZE)
-    W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
-    # h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
-    dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
-    # h_pool2 = max_pool(h_conv2)
-    dh_conv2 = derive_max_pool(dh_pool2, h_conv2)
-    # h_conv2 = relu(h_conv2_z)
-    dh_conv2_z = np.multiply(dh_conv2, derive_relu(h_conv2_z))
-    # h_conv2_z = conv2d(h_pool1, W_conv2) + b_conv2
-    dh_pool1, dW_conv2 = derive_conv2d(dh_conv2_z, h_pool1, W_conv2)
-    W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv2))
-    db_conv2 = dh_conv2_z
-    b_conv2 = np.subtract(b_conv2, np.multiply(ALPHA, db_conv2))
-    # h_pool1 = max_pool(h_conv1)
-    dh_conv1 = derive_max_pool(dh_pool1, h_conv1)
-    # h_conv1 = relu(h_conv1_z)
-    dh_conv1_z = np.multiply(dh_conv1, derive_relu(h_conv1_z))
-    # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
-    _, dW_conv1 = derive_conv2d(dh_conv1_z, x_image, W_conv1)
-    W_conv1 = np.subtract(W_conv1, np.multiply(ALPHA, dW_conv1))
-    db_conv1 = dh_conv1_z
-    b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))
-    
+    return x_image, y_conv
     
 def train():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
-    for i in range(1000):
+    init_variable()
+    for i in range(500):
         x, y = mnist.train.next_batch(BATCH_SIZE)
         x = np.reshape(x, [BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])
-        y_conv = nn(x, y)
+        x_image, y_conv = forward_prop(x, y)
+        back_prop(x_image, y, y_conv)
         cross_entropy = loss(y, y_conv)
-        print(cross_entropy)
-        # 怎么把每次的反向就放s
+        print("交叉熵：{0}".format(cross_entropy))
 
+def test():
+    mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
+    x, y = mnist.test.images, mnist.test.labels
+    _, y_conv = forward_prop(x, y)
+    print("正确率: {0}".format(accuracy(y, y_conv)))
 
 if __name__ == "__main__":
     train()
+    test()

@@ -17,7 +17,7 @@ from __future__ import print_function
 # limitations under the License.
 # ==============================================================================
 """
-http://www.cs.toronto.edu/~kriz/cifar.html
+http://www.cs.toronto.edu/~kriz/AlexNet_like.html
 CIFAR-10数据集：60000 32*32 彩色图，分成10类，每类6000个图。分成50000 train图，10000 test图
 数据集文件结构(python)：
     data_batch1~data_batch_5为train图
@@ -78,7 +78,7 @@ INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 # names of the summaries when visualizing a model.
 TOWER_NAME = 'tower'
 
-DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
+DATA_URL = 'http://www.cs.toronto.edu/~kriz/AlexNet_like-10-binary.tar.gz'
 
 
 def distorted_inputs():
@@ -92,7 +92,7 @@ def distorted_inputs():
   """
   if not FLAGS.data_dir:
       raise ValueError('Please supply a data_dir')
-  data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+  data_dir = os.path.join(FLAGS.data_dir, 'AlexNet_like-10-batches-bin')
   return cifar10_input.distorted_inputs(data_dir=data_dir,
                                         batch_size=FLAGS.batch_size)
 
@@ -110,7 +110,7 @@ def inputs(eval_data):
   """
   if not FLAGS.data_dir:
       raise ValueError('Please supply a data_dir')
-  data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+  data_dir = os.path.join(FLAGS.data_dir, 'AlexNet_like-10-batches-bin')
   return cifar10_input.inputs(eval_data=eval_data, data_dir=data_dir,
                               batch_size=FLAGS.batch_size)
 
