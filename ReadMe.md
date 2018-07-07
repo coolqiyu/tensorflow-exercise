@@ -26,3 +26,4 @@ http://www.tensorfly.cn/tfdoc/tutorials/deep_cnn.html
 - Cnn.py：用numpy实现的4层cnn网络
 - Dnn.py: 用纯python实现的一层简单网络
 - DnnTest.py和CnnTest.py：分别是对应上述文件的单测，用unittest框架
+

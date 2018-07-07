@@ -5,7 +5,7 @@ import copy
 
 class TestMat(unittest.TestCase):
     """
-    MyMnist中几个类方法的测试
+    Dnn中几个类方法的测试
     """
     def listAlmostEqual(self, result, expect):
         for d1 in range(len(expect)):

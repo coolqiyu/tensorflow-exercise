@@ -14,6 +14,8 @@ W_conv1 = b_conv1 = h_conv1_z = h_conv1 = h_pool1 = 0
 W_conv2 = b_conv2 = h_conv2_z = h_conv2 = h_pool2 = 0
 W_fc1 = b_fc1 = h_pool2_flat = h_fc1_z = h_fc1 = 0
 W_fc2 = b_fc2 = 0
+
+
 def pad_algorithm(x, f_shape, stride, padding):
     """
     执行padding算法
@@ -388,20 +390,23 @@ def forward_prop(x, y):
 def train():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     init_variable()
-    for i in range(500):
+    for i in range(10):
         x, y = mnist.train.next_batch(BATCH_SIZE)
         x = np.reshape(x, [BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])
         x_image, y_conv = forward_prop(x, y)
         back_prop(x_image, y, y_conv)
         cross_entropy = loss(y, y_conv)
-        print("交叉熵：{0}".format(cross_entropy))
+        print("交叉熵：{0}, {1}".format(i, cross_entropy))
 
 def test():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     x, y = mnist.test.images, mnist.test.labels
+    x = x[:500,:]
+    y = y[:500,:]
     _, y_conv = forward_prop(x, y)
     print("正确率: {0}".format(accuracy(y, y_conv)))
 
 if __name__ == "__main__":
-    train()
+    init_variable()
+ #   train()
     test()
