@@ -27,3 +27,8 @@ http://www.tensorfly.cn/tfdoc/tutorials/deep_cnn.html
 - Dnn.py: 用纯python实现的一层简单网络
 - DnnTest.py和CnnTest.py：分别是对应上述文件的单测，用unittest框架
 
+
+###ResNet
+tensorflow实现的ResNet
+- subsample: 降采样
+- dense prediction:

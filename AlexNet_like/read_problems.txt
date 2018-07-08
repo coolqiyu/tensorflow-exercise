@@ -1,3 +1,0 @@
-1. result.key, value = reader.read(filename_queue) 这个key是什么
-2. result.key, value = reader.read(filename_queue) 这个只有一个记录吗
-3. 把被调用的函数写在上面

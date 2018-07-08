@@ -3,13 +3,13 @@
 # =================================
 import numpy as np
 from common import input_data
+import threading
 
-
-BATCH_SIZE = 10
+BATCH_SIZE = 100
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 CHANNEL = 1
-ALPHA = 0.1
+ALPHA = 0.01
 W_conv1 = b_conv1 = h_conv1_z = h_conv1 = h_pool1 = 0
 W_conv2 = b_conv2 = h_conv2_z = h_conv2 = h_pool2 = 0
 W_fc1 = b_fc1 = h_pool2_flat = h_fc1_z = h_fc1 = 0
@@ -33,9 +33,10 @@ def pad_algorithm(x, f_shape, stride, padding):
         o_shape = [x_shape[0], int(np.ceil(x_shape[1]/stride[1])),
                    int(np.ceil(x_shape[2]/stride[2])), f_shape[3]]
         # 对输入进行填充，取计算结果的上界
-        h_pad = int(np.ceil(stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]))
-        w_pad = int(np.ceil(stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]))
-        pad = [[0, 0], [int(np.ceil(h_pad/2)), int(np.floor(h_pad/2))], [int(np.ceil(w_pad/2)), int(np.floor(w_pad/2))], [0, 0]]
+        # 原来写的不对，same是在stride=1时输入和输出才一样大，其他时候还是要除以stride的。也就是2p=f
+        h_pad = f_shape[0] // 2 # int(np.ceil(stride[1] * x_shape[1] - stride[1] + f_shape[0] - x_shape[1]))
+        w_pad = f_shape[1] // 2 # int(np.ceil(stride[2] * x_shape[2] - stride[2] + f_shape[1] - x_shape[1]))
+        pad = [[0, 0], [h_pad, f_shape[0] - h_pad], [w_pad, f_shape[1] - w_pad], [0, 0]]
         x = np.pad(x, pad, 'constant', constant_values=(0, 0))
     elif padding.lower() == "valid":
         # (h-f/stride)+1的下界
@@ -64,15 +65,43 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
     o_shape, x, _ = pad_algorithm(x, f_shape, stride, padding)
     out = np.zeros(o_shape)
 
-    # batch
-    for b_i in range(o_shape[0]):
-        # 纵向
-        for h_i in range(o_shape[1]):
-            # 横向
-            for w_i in range(o_shape[2]):
-                #过滤器
-                for f_i in range(o_shape[3]):
-                    out[b_i][h_i][w_i][f_i] = np.sum(np.multiply(x[b_i,h_i * stride[1]:h_i * stride[1] + f_shape[0],w_i * stride[2]: w_i * stride[2] + f_shape[1],:], f[:,:,:,f_i]))
+    # # batch
+    # for b_i in range(o_shape[0]):
+    #     # 纵向
+    #     for h_i in range(o_shape[1]):
+    #         # 横向
+    #         for w_i in range(o_shape[2]):
+    #             #过滤器
+    #             for f_i in range(o_shape[3]):
+    #                 out[b_i][h_i][w_i][f_i] = np.sum(np.multiply(x[b_i,h_i * stride[1]:h_i * stride[1] + f_shape[0],w_i * stride[2]: w_i * stride[2] + f_shape[1],:], f[:,:,:,f_i]))
+
+    # 一个线程中的计算
+    def conv2d_thread(start_batch):
+        print("conv2d  {0}".format(start_batch))
+        # batch
+        end_batch = o_shape[0] if (start_batch + 1) * thread_batch_size > o_shape[0] else (start_batch + 1) * thread_batch_size
+        for b_i in range(start_batch * thread_batch_size, end_batch):
+            # 纵向
+            for h_i in range(o_shape[1]):
+                # 横向
+                for w_i in range(o_shape[2]):
+                    # 过滤器
+                    for f_i in range(o_shape[3]):
+                        out[b_i][h_i][w_i][f_i] = np.sum(
+                            np.multiply(x[b_i, h_i * stride[1]:h_i * stride[1] + f_shape[0],
+                                        w_i * stride[2]: w_i * stride[2] + f_shape[1], :],
+                                        f[:, :, :, f_i]))
+    # 多线程的方式，每50个在一个线程中
+    threads = []
+    thread_batch_size = 10
+    thread_cnt = int(np.ceil(o_shape[0] / thread_batch_size))
+    for i in range(thread_cnt):
+        thread = threading.Thread(target=conv2d_thread, args=(i,))
+        threads.append(thread)
+    for i in range(thread_cnt):
+        threads[i].start()
+    for i in range(thread_cnt):
+        threads[i].join()
     return out
 
 
@@ -96,14 +125,41 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
     out = np.zeros(o_shape)
 
     # batch
-    for b_i in range(o_shape[0]):
-        # 纵向
-        for h_i in range(o_shape[1]):
-            # 横向
-            for w_i in range(o_shape[2]):
-                # channel
-                for f_i in range(o_shape[3]):
-                    out[b_i][h_i][w_i][f_i] = np.max(x[b_i,h_i * stride[1]:h_i * stride[1] + ksize[1],w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
+    # for b_i in range(o_shape[0]):
+    #     # 纵向
+    #     for h_i in range(o_shape[1]):
+    #         # 横向
+    #         for w_i in range(o_shape[2]):
+    #             # channel
+    #             for f_i in range(o_shape[3]):
+    #                 out[b_i][h_i][w_i][f_i] = np.max(x[b_i,h_i * stride[1]:h_i * stride[1] + ksize[1],w_i * stride[2]: w_i * stride[2] + ksize[2],f_i])
+
+
+    #
+    def max_pool_thread(start_batch):
+        print("max_pool  {0}".format(start_batch))
+        end_batch = (start_batch + 1) * thread_batch_cnt if (start_batch + 1) * thread_batch_cnt < o_shape[0] else o_shape[0]
+        for b_i in range(start_batch * thread_batch_cnt, end_batch):
+            # 纵向
+            for h_i in range(o_shape[1]):
+                # 横向
+                for w_i in range(o_shape[2]):
+                    # channel
+                    for f_i in range(o_shape[3]):
+                        out[b_i][h_i][w_i][f_i] = np.max(x[b_i, h_i * stride[1]:h_i * stride[1] + ksize[1],
+                                                         w_i * stride[2]: w_i * stride[2] + ksize[2], f_i])
+    # 多线程计算方式
+    threads = []
+    thread_batch_cnt = 10
+    thread_cnt = int(np.ceil(o_shape[0] / thread_batch_cnt))
+    for i in range(thread_cnt):
+        thread = threading.Thread(target=max_pool_thread, args=(i,))
+        threads.append(thread)
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
     return out
 
 
@@ -185,17 +241,17 @@ def derive_conv2d(dy, x, f, stride=[1, 1, 1, 1], padding="SAME"):
             # filter
             for f_i in range(f_shape[3]):
                 # 每次访问下一个x的位置是正确的(+stride)，但是没有考虑到边界，最大的不总是最后一个，filter的占位
-                df[h_i][w_i][:, f_i] = np.divide(np.sum(np.multiply(x[:, h_i:x_shape[1] - f_shape[0] + h_i + 1: stride[1],
-                                                                    w_i:x_shape[2] - f_shape[1] + w_i + 1:stride[2], :], dy[:, :, :, f_i : f_i+1]), (0, 1, 2)), x_shape[0])
+                df[h_i][w_i][:, f_i] = np.divide(np.sum(np.multiply(x[:, h_i:x_shape[1] - f_shape[0] + h_i: stride[1],
+                                                                    w_i:x_shape[2] - f_shape[1] + w_i:stride[2], :], dy[:, :, :, f_i : f_i+1]), (0, 1, 2)), x_shape[0])
     # 对x进行求导
     # 如果用x原始大小来计算：则第一次计算中f不一定从0开始，所以这里用pad过的x大小计算，最后返回时进行切片
     # batch
     for b_i in range(x_shape[0]):
         # 纵向
-        for h_i in range(0, x_shape[1] - f_shape[0] + 1, stride[1]):
+        for h_i in range(0, x_shape[1] - f_shape[0], stride[1]):
             # 横向
-            for w_i in range(0, x_shape[2] - f_shape[1] + 1, stride[2]):
-                dx[b_i][h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:] = np.add(dx[b_i][h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:], np.sum(np.multiply(f[:,:,:,:], dy[b_i][h_i][w_i]),3))
+            for w_i in range(0, x_shape[2] - f_shape[1], stride[2]):
+                dx[b_i][h_i:h_i + f_shape[0],w_i: w_i + f_shape[1],:] = np.add(dx[b_i][h_i:h_i + f_shape[0], w_i: w_i + f_shape[1], :], np.sum(np.multiply(f[:,:,:,:], dy[b_i][h_i][w_i]),3))
     return dx[:, pad[1][0]: x_shape[1] - pad[1][1], pad[2][0]: x_shape[2] - pad[2][1], :], df
 
 
@@ -310,48 +366,62 @@ def back_prop(x_image, y, y_conv):
     global W_fc2, b_fc2
     # y_conv=softmax(z)
     dz = derive_softmax(y_conv, y)
+    assert np.shape(dz) == np.shape(y)
 
     # z = np.matmul(h_fc1, W_fc2) + b_fc2
-    db_fc2 = dz
+    db_fc2 = np.divide(np.sum(dz, 0), np.shape(dz)[0])
+    assert np.shape(db_fc2) == np.shape(b_fc2)
     b_fc2 = np.subtract(b_fc2, np.multiply(ALPHA, db_fc2))
     dh_fc1, dW_fc2 = derive_matmul(h_fc1, W_fc2, dz)
+    assert np.shape(dW_fc2) == np.shape(W_fc2)
+    assert np.shape(dh_fc1) == np.shape(h_fc1)
     W_fc2 = np.subtract(W_fc2, np.multiply(ALPHA, dW_fc2))
 
     # h_fc1 = relu(h_fc1_z)
     dh_fc1_z = derive_relu(h_fc1_z) * dh_fc1
+    assert np.shape(h_fc1_z) == np.shape(dh_fc1_z)
 
     # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
-    db_fc1 = dh_fc1_z * dh_fc1_z
+    db_fc1 = np.divide(np.sum(dh_fc1_z, 0), np.shape(dz)[0])
+    assert np.shape(db_fc1) == np.shape(b_fc1)
     b_fc1 = np.subtract(b_fc1, db_fc1)
     dh_pool2_flat, dW_fc1 = derive_matmul(h_pool2_flat, W_fc1, dh_fc1_z)
     W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
-
+    assert np.shape(dW_fc1) == np.shape(W_fc1)
+    assert np.shape(dh_pool2_flat) == np.shape(h_pool2_flat)
     # h_pool2_flat = np.reshape(h_pool2, [-1, 7 * 7 * 64])
     dh_pool2 = np.reshape(dh_pool2_flat, [-1, 7, 7, 64])
-
+    assert np.shape(dh_pool2) == np.shape(h_pool2)
     # h_pool2 = max_pool(h_conv2)
     dh_conv2 = derive_max_pool(dh_pool2, h_conv2)
-
+    assert np.shape(dh_conv2) == np.shape(h_conv2)
     # h_conv2 = relu(h_conv2_z)
     dh_conv2_z = np.multiply(dh_conv2, derive_relu(h_conv2_z))
-
+    assert np.shape(dh_conv2_z) == np.shape(h_conv2_z)
     # h_conv2_z = conv2d(h_pool1, W_conv2) + b_conv2
     dh_pool1, dW_conv2 = derive_conv2d(dh_conv2_z, h_pool1, W_conv2)
+    assert np.shape(dh_pool1) == np.shape(h_pool1)
+    assert np.shape(dW_conv2) == np.shape(W_conv2)
     W_conv2 = np.subtract(W_conv2, np.multiply(ALPHA, dW_conv2))
-    db_conv2 = dh_conv2_z
+    dh_conv2_z_shape = np.shape(dh_conv2_z)
+    db_conv2 = np.divide(np.sum(dh_conv2_z, (0, 1, 2)), dh_conv2_z_shape[0] * dh_conv2_z_shape[1] * dh_conv2_z_shape[2])
+    assert np.shape(db_conv2) == np.shape(b_conv2)
     b_conv2 = np.subtract(b_conv2, np.multiply(ALPHA, db_conv2))
 
     # h_pool1 = max_pool(h_conv1)
     dh_conv1 = derive_max_pool(dh_pool1, h_conv1)
-
+    assert np.shape(dh_conv1) == np.shape(h_conv1)
     # h_conv1 = relu(h_conv1_z)
     dh_conv1_z = np.multiply(dh_conv1, derive_relu(h_conv1_z))
-
+    assert np.shape(dh_conv1_z) == np.shape(h_conv1_z)
     # h_conv1_z = conv2d(x_image, W_conv1) + b_conv1
     _, dW_conv1 = derive_conv2d(dh_conv1_z, x_image, W_conv1)
     W_conv1 = np.subtract(W_conv1, np.multiply(ALPHA, dW_conv1))
-    db_conv1 = dh_conv1_z
+    dh_conv1_z_shape = np.shape(dh_conv1_z)
+    db_conv1 = np.divide(np.sum(dh_conv1_z, (0, 1, 2)), dh_conv1_z_shape[0] * dh_conv1_z_shape[1] * dh_conv1_z_shape[3])
     b_conv1 = np.subtract(b_conv1, np.multiply(ALPHA, db_conv1))
+    assert np.shape(W_conv1) == np.shape(dW_conv1)
+    assert np.shape(db_conv1) == np.shape(b_conv1)
 
 def forward_prop(x, y):
     """
@@ -389,8 +459,7 @@ def forward_prop(x, y):
     
 def train():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
-    init_variable()
-    for i in range(10):
+    for i in range(50):
         x, y = mnist.train.next_batch(BATCH_SIZE)
         x = np.reshape(x, [BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])
         x_image, y_conv = forward_prop(x, y)
@@ -401,12 +470,12 @@ def train():
 def test():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     x, y = mnist.test.images, mnist.test.labels
-    x = x[:500,:]
-    y = y[:500,:]
+    x = x[:50,:]
+    y = y[:50,:]
     _, y_conv = forward_prop(x, y)
     print("正确率: {0}".format(accuracy(y, y_conv)))
 
 if __name__ == "__main__":
     init_variable()
- #   train()
+    train()
     test()

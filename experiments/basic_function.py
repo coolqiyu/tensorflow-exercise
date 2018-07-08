@@ -1,4 +1,4 @@
-# 写一些基本函数的使用例子
+# 写一些tf基本函数的使用例子
 # ===================================================
 
 import tensorflow as tf
@@ -46,6 +46,17 @@ def my_variable_scope():
             v = tf.get_variable("v", [1])
             v2 = tf.get_variable("v", [1])
             assert v == v2
+
+def my_name_scope():
+    with tf.Session() as sess:
+        with tf.name_scope("name_scope"):
+            v = tf.get_variable("v", [1])
+            # v:0
+            print(v.name)
+        with tf.variable_scope("name_scope", reuse=False):
+            v = tf.get_variable("v", [1])
+            # name_scope/v:0
+            print(v.name)
 
 def myslice():
     """
@@ -203,7 +214,7 @@ def fetch():
         print(b)
 
 if __name__ == "__main__":
-    fetch()
+    # fetch()
     # myslice()
     #my_decode_raw()
     # my_transpose()
@@ -237,3 +248,4 @@ if __name__ == "__main__":
 # tf.train.ExponentialMovingAverage
 # exponential_decay 学习率衰减
 # softmax_cross_entropy_with_logits这个！
+    my_name_scope()
