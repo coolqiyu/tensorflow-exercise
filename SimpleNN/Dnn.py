@@ -114,7 +114,7 @@ class NN:
                         sum = MAX_NUM
                     else:
                         sum += -1 * math.log(y_[batch_index][i])
-        return sum/batch_size
+        return sum
 
 
     @staticmethod

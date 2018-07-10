@@ -4,7 +4,6 @@
 
 import tensorflow as tf
 from common import input_data
-
 DEBUG = True
 
 # 一个隐藏层网络
@@ -84,23 +83,23 @@ def four_layers_mnist_train():
 
     # 交叉熵
     cross_entropy = -tf.reduce_sum(y_ * tf.log(y_conv))
-    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
     # 计算精确度，其实也是在图上加了节点：将最后的输出再往下走
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+    mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     
     with tf.Session() as sess:
         sess.run(tf.initialize_all_variables())
         # 遍历mini-batch
-        for i in range(1000):
-            batch = mnist.train.next_batch(50)
-            if i % 50 == 0:
-                train_accuracy = accuracy.eval(feed_dict={
-                    x: batch[0], y_: batch[1], keep_prob: 1.0})
-                print("step %d, training accuracy %g" % (i, train_accuracy))
-            train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+        for i in range(10):
+            batch = mnist.train.next_batch(100)
+            # if i % 50 == 0:
+            #     train_accuracy = accuracy.eval(feed_dict={
+            #         x: batch[0], y_: batch[1], keep_prob: 1.0})
+            #     print("step %d, training accuracy %g" % (i, train_accuracy))
+            print(sess.run([cross_entropy, train_step], feed_dict={x: batch[0], y_: batch[1], keep_prob: 1}))
 
         print(
         "test accuracy %g" % accuracy.eval(feed_dict={
@@ -111,10 +110,12 @@ def weight_variable(shape):
     # 以shape产生正太分布，值随机，stddev是标准差，mean：均值
     # tf.truncated_normal初始函数将根据所得到的均值和标准差，生成一个随机分布，用来初始化权重变量
     # 其中第一个维度代表该层中权重变量所连接（connect from）的单元数量，第二个维度代表该层中权重变量所连接到的（connect to）单元数量。
-    initial = tf.truncated_normal(shape, stddev=0.1)
+    #initial = tf.truncated_normal(shape, stddev=0.1)
+    initial = tf.zeros(shape)
     return tf.Variable(initial)
 def bias_variable(shape):
-    initial = tf.constant(0.1, shape=shape)
+    #initial = tf.constant(0.1, shape=shape)
+    initial = tf.zeros(shape)
     return tf.Variable(initial)
 
 """
@@ -139,7 +140,7 @@ def max_pool_2x2(x):
     :param x:
     :return:
     """
-    return tf.nn.max_pool(x, ksize=[1, 2, 3, 1], strides=[1, 2, 2, 1], padding="SAME")
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
 
 
 # tensorboard例子
@@ -197,3 +198,7 @@ def tensorboard():
         correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
         print(sess.run(accuracy, feed_dict={x: mnist.test.images, y_: mnist.test.labels}))
+
+
+if __name__=="__main__":
+    four_layers_mnist_train()

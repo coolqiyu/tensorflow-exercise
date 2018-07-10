@@ -145,15 +145,32 @@ class CnnTest(unittest.TestCase):
 
     def test_loss_01(self):
         cost = Cnn.loss([[2]], [[2]])
-        expect = [-2]
-        self.assertTrue((cost == expect).all())
+        expect = [-2 * np.log(2)]
+        print(expect)
+        self.assertAlmostEqual(cost, expect)
 
     def test_loss_02(self):
         y = np.full((2, 2), 2)
         y_ = np.full((2, 2), 2)
         cost = Cnn.loss(y, y_)
-        expect = [-2, -2]
-        self.assertTrue((cost == expect).all())
+        expect = 4 * (-2) * np.log(2)
+        self.assertAlmostEqual(cost, expect)
+
+    def test_accuracy_01(self):
+        y = np.zeros([10, 5])
+        y_ = np.zeros([10, 5])
+        y[:,[0]] = 1
+        y_[:, [1]] = 1
+        result = Cnn.accuracy(y, y_)
+        self.assertEqual(result, 0)
+
+    def test_accuracy_02(self):
+        y = np.zeros([10, 5])
+        y_ = np.zeros([10, 5])
+        y[:, [1]] = 1
+        y_[:, [1]] = 1
+        result = Cnn.accuracy(y, y_)
+        self.assertEqual(result, 1)
 
 if __name__ == "__main__":
     unittest.main()

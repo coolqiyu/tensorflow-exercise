@@ -19,7 +19,17 @@ from tensorflow.python.ops import array_ops
 from tensorflow.contrib.framework.python.ops import add_arg_scope
 import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import utils
+import collections
 
+
+class Block(collections.namedtuple('Block', ['scope', 'unit_fn', 'args'])):
+  """一个描述ResNet块的元组
+  collections.namedtuple: 返回一个元组的子类，包括了命名的字段
+  Its parts are:
+    scope: 块的域
+    unit_fn: ResNet单元的函数(激活函数)
+    args: 每个单元有一个元组 (depth, depth_bottleneck, stride) 作为unit_fn的参数
+  """
 
 def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
     """
@@ -66,7 +76,7 @@ def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None
     2. 允许用户显式控制ResNet的output_stride，就是输入和输出的空间分辨率比。
     :param net: BHWC
     :param blocks: 一个长度与ResNet块个数相同的list。每个元素是一个ResNet块，它描述了块中的单元
-    :param output_stride: 如果为None，则输出按照支配的网络步长计算。否则，
+    :param output_stride: stride为步长。如果为None，则输出按照支配的网络步长计算。否则，
     :param outputs_collections:
     :return:
     """

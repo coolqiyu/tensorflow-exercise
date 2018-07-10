@@ -5,11 +5,11 @@ import numpy as np
 from common import input_data
 import threading
 
-BATCH_SIZE = 100
+BATCH_SIZE = 50
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 CHANNEL = 1
-ALPHA = 0.01
+ALPHA = 0.1
 W_conv1 = b_conv1 = h_conv1_z = h_conv1 = h_pool1 = 0
 W_conv2 = b_conv2 = h_conv2_z = h_conv2 = h_pool2 = 0
 W_fc1 = b_fc1 = h_pool2_flat = h_fc1_z = h_fc1 = 0
@@ -77,7 +77,6 @@ def conv2d(x, f, stride=[1, 1, 1, 1], padding="SAME"):
 
     # 一个线程中的计算
     def conv2d_thread(start_batch):
-        print("conv2d  {0}".format(start_batch))
         # batch
         end_batch = o_shape[0] if (start_batch + 1) * thread_batch_size > o_shape[0] else (start_batch + 1) * thread_batch_size
         for b_i in range(start_batch * thread_batch_size, end_batch):
@@ -137,7 +136,6 @@ def max_pool(x, ksize=[1, 2, 2, 1], stride=[1, 2, 2, 1], padding="VALID"):
 
     #
     def max_pool_thread(start_batch):
-        print("max_pool  {0}".format(start_batch))
         end_batch = (start_batch + 1) * thread_batch_cnt if (start_batch + 1) * thread_batch_cnt < o_shape[0] else o_shape[0]
         for b_i in range(start_batch * thread_batch_cnt, end_batch):
             # 纵向
@@ -190,11 +188,12 @@ def softmax(x):
 
 
 def loss(y, y_):
-    y_shape = np.shape(y)
-    d = 1
-    for i in y_shape:
-        d *= i
-    cost = np.divide(np.sum(np.multiply(np.multiply(-1, y), np.log2(y_))), d)
+    # y_shape = np.shape(y)
+    # d = 1
+    # for i in y_shape:
+    #     d *= i
+    #cost = np.divide(np.sum(np.multiply(np.multiply(-1, y), np.log2(y_))), d)
+    cost = np.sum(np.multiply(np.multiply(-1, y), np.log(y_)))
     return cost
 
 def accuracy(y, y_):
@@ -340,17 +339,17 @@ def init_variable():
     :return:
     """
     global W_conv1, b_conv1
-    W_conv1 = np.zeros([5, 5, 1, 32])  # 5*5*1
-    b_conv1 = np.zeros([32])  # 32
+    W_conv1 = np.zeros((5, 5, 1, 32))  # 5*5*1
+    b_conv1 = np.zeros((32))  # 32
     global W_conv2, b_conv2
-    W_conv2 = np.zeros([5, 5, 32, 64])  # 5*5*32
-    b_conv2 = np.zeros([64])  # 64
+    W_conv2 = np.zeros((5, 5, 32, 64))  # 5*5*32
+    b_conv2 = np.zeros((64))  # 64
     global W_fc1, b_fc1
-    W_fc1 = np.zeros([7 * 7 * 64, 1024])
-    b_fc1 = np.zeros([1024])
+    W_fc1 = np.zeros((7 * 7 * 64, 1024))
+    b_fc1 = np.zeros((1024))
     global W_fc2, b_fc2
-    W_fc2 = np.zeros([1024, 10])
-    b_fc2 = np.zeros([10])
+    W_fc2 = np.zeros((1024, 10))
+    b_fc2 = np.zeros((10))
 
 def back_prop(x_image, y, y_conv):
     """
@@ -382,9 +381,9 @@ def back_prop(x_image, y, y_conv):
     assert np.shape(h_fc1_z) == np.shape(dh_fc1_z)
 
     # h_fc1_z = np.matmul(h_pool2_flat, W_fc1) + b_fc1
-    db_fc1 = np.divide(np.sum(dh_fc1_z, 0), np.shape(dz)[0])
+    db_fc1 = np.divide(np.sum(dh_fc1_z, 0), np.shape(dh_fc1_z)[0])
     assert np.shape(db_fc1) == np.shape(b_fc1)
-    b_fc1 = np.subtract(b_fc1, db_fc1)
+    b_fc1 = np.subtract(b_fc1, np.multiply(ALPHA, db_fc1))
     dh_pool2_flat, dW_fc1 = derive_matmul(h_pool2_flat, W_fc1, dh_fc1_z)
     W_fc1 = np.subtract(W_fc1, np.multiply(ALPHA, dW_fc1))
     assert np.shape(dW_fc1) == np.shape(W_fc1)
@@ -459,7 +458,7 @@ def forward_prop(x, y):
     
 def train():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
-    for i in range(50):
+    for i in range(1000):
         x, y = mnist.train.next_batch(BATCH_SIZE)
         x = np.reshape(x, [BATCH_SIZE, IMAGE_HEIGHT, IMAGE_WIDTH, CHANNEL])
         x_image, y_conv = forward_prop(x, y)
@@ -470,8 +469,6 @@ def train():
 def test():
     mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     x, y = mnist.test.images, mnist.test.labels
-    x = x[:50,:]
-    y = y[:50,:]
     _, y_conv = forward_prop(x, y)
     print("正确率: {0}".format(accuracy(y, y_conv)))
 
