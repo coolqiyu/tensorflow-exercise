@@ -32,3 +32,4 @@ http://www.tensorfly.cn/tfdoc/tutorials/deep_cnn.html
 tensorflow实现的ResNet
 - subsample: 降采样
 - dense prediction:
+- TODO: 理解下块的概念

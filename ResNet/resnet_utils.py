@@ -12,14 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
+import collections
 
 from tensorflow.contrib import layers as layers_lib
-from tensorflow.python.ops import array_ops
 from tensorflow.contrib.framework.python.ops import add_arg_scope
-import tensorflow as tf
+from tensorflow.contrib.framework.python.ops import arg_scope
+from tensorflow.contrib.layers.python.layers import initializers
+from tensorflow.contrib.layers.python.layers import layers
+from tensorflow.contrib.layers.python.layers import regularizers
 from tensorflow.contrib.layers.python.layers import utils
-import collections
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import nn_ops
+from tensorflow.python.ops import variable_scope
+
 
 
 class Block(collections.namedtuple('Block', ['scope', 'unit_fn', 'args'])):
@@ -71,7 +81,7 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
 @add_arg_scope
 def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None):
     """
-    stack ResNet 块以及控制输出feature的密度
+    把blocks中的block按照参数设定添加到net中
     1. 创建scopes，名字为block_name/unit_1, block_name/unit_2
     2. 允许用户显式控制ResNet的output_stride，就是输入和输出的空间分辨率比。
     :param net: BHWC
@@ -84,6 +94,7 @@ def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None
     rate = 1
     for block in blocks:
         with tf.variable_scope(block.scope, 'block', [net]) as sc:
+            # 遍历block中的每一个参数(depth, depth_bottleneck, stride)
             for i, unit in enumerate(block.args):
                 if output_stride is not None and current_stride > output_stride:
                     raise ValueError('The target output_stride cannot be reached.')
@@ -99,3 +110,48 @@ def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None
     if output_stride is not None and current_stride != output_stride:
         raise ValueError('The target output_stride cannot be reached.')
     return net
+
+
+def resnet_arg_scope(weight_decay=0.0001,
+                     batch_norm_decay=0.997,
+                     batch_norm_epsilon=1e-5,
+                     batch_norm_scale=True):
+  """定义默认的arg scope
+  TODO(gpapan): The batch-normalization related default values above are
+    appropriate for use in conjunction with the reference ResNet models
+    released at https://github.com/KaimingHe/deep-residual-networks. When
+    training ResNets from scratch, they might need to be tuned.
+  Args:
+    weight_decay: 权重衰减
+    batch_norm_decay: The moving average decay when estimating layer activation
+      statistics in batch normalization.
+    batch_norm_epsilon: Small constant to prevent division by zero when
+      normalizing activations by their variance in batch normalization.
+    batch_norm_scale: If True, uses an explicit `gamma` multiplier to scale the
+      activations in the batch normalization layer.
+  Returns:
+    An `arg_scope` to use for the resnet models.
+  """
+  batch_norm_params = {
+      'decay': batch_norm_decay,
+      'epsilon': batch_norm_epsilon,
+      'scale': batch_norm_scale,
+      'updates_collections': ops.GraphKeys.UPDATE_OPS,
+  }
+
+  with arg_scope(
+      [layers_lib.conv2d],
+      weights_regularizer=regularizers.l2_regularizer(weight_decay),
+      weights_initializer=initializers.variance_scaling_initializer(),
+      activation_fn=nn_ops.relu,
+      normalizer_fn=layers.batch_norm,
+      normalizer_params=batch_norm_params):
+    with arg_scope([layers.batch_norm], **batch_norm_params):
+      # The following implies padding='SAME' for pool1, which makes feature
+      # alignment easier for dense prediction tasks. This is also used in
+      # https://github.com/facebook/fb.resnet.torch. However the accompanying
+      # code of 'Deep Residual Learning for Image Recognition' uses
+      # padding='VALID' for pool1. You can switch to that choice by setting
+      # tf.contrib.framework.arg_scope([tf.contrib.layers.max_pool2d], padding='VALID').
+      with arg_scope([layers.max_pool2d], padding='SAME') as arg_sc:
+        return arg_sc
