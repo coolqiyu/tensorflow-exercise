@@ -58,17 +58,17 @@ class ResnetCompleteNetworkTest(test.TestCase):
         num_classes = 10
         inputs = create_test_input(2, 224, 224, 3)
         with arg_scope(resnet_utils.resnet_arg_scope()):
-          _, end_points = self._resnet_small(
-              inputs, num_classes, global_pool=global_pool, scope='resnet')
-          endpoint_to_shape = {
-              'resnet/block1': [2, 28, 28, 4],
-              'resnet/block2': [2, 14, 14, 8],
-              'resnet/block3': [2, 7, 7, 16],
-              'resnet/block4': [2, 7, 7, 32]
-          }
-          for endpoint in endpoint_to_shape:
-            shape = endpoint_to_shape[endpoint]
-            self.assertListEqual(end_points[endpoint].get_shape().as_list(), shape)
+            _, end_points = self._resnet_small(
+                inputs, num_classes, global_pool=global_pool, scope='resnet')
+            endpoint_to_shape = {
+                'resnet/block1': [2, 28, 28, 4],
+                'resnet/block2': [2, 14, 14, 8],
+                'resnet/block3': [2, 7, 7, 16],
+                'resnet/block4': [2, 7, 7, 32]
+            }
+            for endpoint in endpoint_to_shape:
+                shape = endpoint_to_shape[endpoint]
+                self.assertListEqual(end_points[endpoint].get_shape().as_list(), shape)
 
 if __name__=="__main__":
     test.main()

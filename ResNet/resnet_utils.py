@@ -35,11 +35,28 @@ from tensorflow.python.ops import variable_scope
 class Block(collections.namedtuple('Block', ['scope', 'unit_fn', 'args'])):
   """一个描述ResNet块的元组
   collections.namedtuple: 返回一个元组的子类，包括了命名的字段
-  Its parts are:
+  调用Block()创建一个块时，给出的参数和[]中的一一对应
+  成员包括：
     scope: 块的域
     unit_fn: ResNet单元的函数(激活函数)
     args: 每个单元有一个元组 (depth, depth_bottleneck, stride) 作为unit_fn的参数
   """
+
+def subsample(inputs, factor, scope=None):
+  """利用最大池来对输入进行采样
+  Args:
+    inputs: 输入[batch, height_in, width_in, channels].
+    factor: 子采样比例
+    scope: Optional variable_scope.
+  Returns:
+    output: 输出[batch, height_out, width_out, channels] with the
+      input, either intact (if factor == 1) or subsampled (if factor > 1).
+  """
+  if factor == 1:
+    return inputs
+  else:
+    return layers.max_pool2d(inputs, [1, 1], stride=factor, scope=scope)
+
 
 def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
     """
@@ -67,7 +84,7 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
         pad_total = kernel_size_effective - 1
         pad_beg = pad_total // 2
         pad_end = pad_total - pad_beg
-        inputs = array_ops.pad(input, [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]])
+        inputs = array_ops.pad(inputs, [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]])
         return layers_lib.conv2d(
             inputs,
             num_outputs,
@@ -92,17 +109,17 @@ def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None
     """
     current_stride = 1
     rate = 1
-    for block in blocks:
-        with tf.variable_scope(block.scope, 'block', [net]) as sc:
-            # 遍历block中的每一个参数(depth, depth_bottleneck, stride)
+    for block in blocks:#遍历每一块
+        with variable_scope.variable_scope(block.scope, 'block', [net]) as sc:
+            # 遍历block中的每一个单元，包含对应的参数(depth, depth_bottleneck, stride)，用来构建一个短连接的块
             for i, unit in enumerate(block.args):
-                if output_stride is not None and current_stride > output_stride:
+                if output_stride is not None and current_stride > output_stride:# 输出的维度只能比原来输入的x大或相同
                     raise ValueError('The target output_stride cannot be reached.')
-                with tf.variable_scope('unit_%d' % (i + 1), values=[net]):
+                with variable_scope.variable_scope('unit_%d' % (i + 1), values=[net]):
                     if output_stride is not None and current_stride == output_stride:
                         net = block.unit_fn(net, rate=rate, **dict(unit, stride=1))
                         rate *= unit.get('stride', 1)
-                    else:
+                    else:# **dict(val) 作为实参时，会自动与命名参数对应起来
                         net = block.unit_fn(net, rate=1, **unit)
                         current_stride *= unit.get('stride', 1)
             net = utils.collect_named_outputs(outputs_collections, sc.name, net)

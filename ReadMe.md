@@ -30,6 +30,11 @@ http://www.tensorfly.cn/tfdoc/tutorials/deep_cnn.html
 
 ###ResNet
 tensorflow实现的ResNet
-- subsample: 降采样
-- dense prediction:
-- TODO: 理解下块的概念
+- subsample: 降采样，用最大池
+- block中包含单元unit，一个单元是一个短连接模块
+- bottleneck：对一个神经单元前后分别加上1x1卷积，可以较少/增加维度
+- depth/bottleneck_depth：卷积个数
+
+
+
+

@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 if __name__ == '__main__':
    #MyMnist.my_mnist_train()
@@ -28,3 +29,27 @@ if __name__ == '__main__':
    print([1, 2,3] *2)
    expect = [12, 24, 24, 24, 48, 48, 24, 48, 48]
    print(np.repeat(np.reshape(expect, (-1, 1)), 4, 1).flatten())
+
+   words = []
+   N = len(words)
+   keys = []
+
+   min_len = 999999999
+   for start in range(N):
+      left = -1
+      right = -1
+      keys_tmp = copy.deep_copy(keys)
+      for index, word in enumerate(words[start:]):
+         # 找到所有的关键词
+         if len(keys_tmp) == 0:
+            if right - left + 1 < min_len:
+               min_len = right - left + 1
+            break
+         # 遍历判断命中哪个关键词
+         for key in keys_tmp:
+            if word == key:
+               if left == -1:
+                  left = index
+               if right == -1:
+                  right = index
+               keys_tmp.remove(key),

@@ -140,7 +140,7 @@ def max_pool_2x2(x):
     :param x:
     :return:
     """
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+    return tf.nn.max_pool(x, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID")
 
 
 # tensorboard例子
@@ -201,4 +201,6 @@ def tensorboard():
 
 
 if __name__=="__main__":
-    four_layers_mnist_train()
+    #four_layers_mnist_train()
+    m = max_pool_2x2(tf.zeros([2, 112, 112, 64]))
+    a = 1
