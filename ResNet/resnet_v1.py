@@ -36,10 +36,10 @@ def bottleneck(inputs,
   """
   with tf.variable_scope(scope, 'bottleneck_v1', [inputs]) as sc:
     depth_in = utils.last_dimension(inputs.get_shape(), min_rank=4)
-    if depth == depth_in:
+    if depth == depth_in:# 如果x的通道数与最后输出的一致，则不用对x做变换
       shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
     else:
-      shortcut = layers.conv2d(# (2,56,56,4)
+      shortcut = layers.conv2d(# (2,56,56,4) 对x做Ws变换
           inputs,
           depth, [1, 1],
           stride=stride,
@@ -50,9 +50,9 @@ def bottleneck(inputs,
         inputs, depth_bottleneck, [1, 1], stride=1, scope='conv1')
     residual = resnet_utils.conv2d_same(# (2,56,56,1)
         residual, depth_bottleneck, 3, stride, rate=rate, scope='conv2')
-    residual = layers.conv2d(# (2,56,56,64)
+    residual = layers.conv2d(# (2,56,56,4)
         residual, depth, [1, 1], stride=1, activation_fn=None, scope='conv3')
-    # 这里不是直接用inputs与bottleneck的输出相加？
+
     output = nn_ops.relu(shortcut + residual)
 
     return utils.collect_named_outputs(outputs_collections, sc.name, output)
@@ -70,14 +70,16 @@ def resnet_v1(inputs,
     """
     生成一个resnet model
     :param inputs:
-    :param blocks:
+    :param blocks: ResNet块列表，在构建中会将各块中的单元堆叠起来
     :param num_classes:
     :param is_training:
     :param output_stride:
     :param include_root_block:
     :param reuse:
     :param scope:
-    :return:(2,224,224,3)——conv2d(7,7,3,64) s=2 p=same(2,112,112,64)——maxpool(1,3,3,1) s=2(2,56,56,64)——
+    :return:
+        net [batch, height_out, width_out, channels_out]
+        end_points 网络component与对应的激活结果
     """
     with tf.variable_scope(scope, 'resnet_v1', [inputs], reuse=reuse) as scope:
         end_points_collection = scope.original_name_scope + '_end_points'
@@ -85,13 +87,15 @@ def resnet_v1(inputs,
                 [layers.conv2d, bottleneck, resnet_utils.stack_blocks_dense],
                 outputs_collections=end_points_collection):
             with arg_scope([layers_lib.batch_norm], is_training=is_training):
-                net = inputs
-                if include_root_block:
+                net = inputs # (2,224,224,3)
+                if include_root_block:# 包含root块的话，则对输入先做conv2d和max_pool
                     if output_stride is not None:
                         if output_stride % 4 != 0:
                             raise ValueError('The ouput_stride needs to be a multiple of 4.')
                             output_stride /= 4
+                    # conv2d(7,7,3,64) s=2 p=same(2,112,112,64)
                     net = resnet_utils.conv2d_same(net, 64, 7, stride=2, scope='conv1')
+                    # maxpool(1,3,3,1) s=2(2,56,56,64)
                     net = layers_lib.max_pool2d(net, [3, 3], stride=2, scope='pool1')
                 net = resnet_utils.stack_blocks_dense(net, blocks, output_stride)#(2,7,7,32)
                 # 全局平均池化
@@ -121,11 +125,37 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
     返回一个resnet bottleneck块
   """
   return resnet_utils.Block(scope, bottleneck, [{
-      'depth': base_depth * 4,
-      'depth_bottleneck': base_depth,
+      'depth': base_depth * 4, # 最后输出的通道数，为什么这里是bottleneck的4倍？
+      'depth_bottleneck': base_depth,  # 第一个1x1过滤器的个数
       'stride': 1
   }] * (num_units - 1) + [{
       'depth': base_depth * 4,
       'depth_bottleneck': base_depth,
       'stride': stride
   }])
+
+
+def resnet_v1_50(inputs,
+                 num_classes=None,
+                 is_training=True,
+                 global_pool=True,
+                 output_stride=None,
+                 reuse=None,
+                 scope='resnet_v1_50'):
+  """ResNet-50 model 对应论文中的结构"""
+  blocks = [
+      resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
+      resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
+      resnet_v1_block('block3', base_depth=256, num_units=6, stride=2),
+      resnet_v1_block('block4', base_depth=512, num_units=3, stride=1),
+  ]
+  return resnet_v1(
+      inputs,
+      blocks,
+      num_classes,
+      is_training,
+      global_pool,
+      output_stride,
+      include_root_block=True,
+      reuse=reuse,
+      scope=scope)

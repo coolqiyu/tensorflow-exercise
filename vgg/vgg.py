@@ -1,4 +1,4 @@
-# vgg-16网络
+# vgg-16网络  全部使用3x3卷积，研究网络深度对大型图片识别精度的影响
 import tensorflow as tf
 import common.input_data as input_data
 

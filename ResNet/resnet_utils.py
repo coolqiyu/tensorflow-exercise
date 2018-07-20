@@ -46,7 +46,7 @@ def subsample(inputs, factor, scope=None):
   """利用最大池来对输入进行采样
   Args:
     inputs: 输入[batch, height_in, width_in, channels].
-    factor: 子采样比例
+    factor: stride
     scope: Optional variable_scope.
   Returns:
     output: 输出[batch, height_out, width_out, channels] with the
@@ -120,8 +120,8 @@ def stack_blocks_dense(net, blocks, output_stride=None, outputs_collections=None
                         net = block.unit_fn(net, rate=rate, **dict(unit, stride=1))
                         rate *= unit.get('stride', 1)
                     else:# **dict(val) 作为实参时，会自动与命名参数对应起来
-                        net = block.unit_fn(net, rate=1, **unit)
-                        current_stride *= unit.get('stride', 1)
+                        net = block.unit_fn(net, rate=1, **unit) # 为什么要用current_stride
+                        current_stride *= unit.get('stride', 1)# unit为dict，dict.get('key',default_value) 如果key不存在，则返回default_value
             net = utils.collect_named_outputs(outputs_collections, sc.name, net)
 
     if output_stride is not None and current_stride != output_stride:

@@ -23,9 +23,12 @@ http://www.tensorfly.cn/tfdoc/tutorials/deep_cnn.html
 
 ####SimpleNN
 自己实现的简单网络，不用tensorflow来实现相关的操作，如反向求导
-- Cnn.py：用numpy实现的4层cnn网络
+- Cnn.py：用numpy实现的4层cnn网
 - Dnn.py: 用纯python实现的一层简单网络
 - DnnTest.py和CnnTest.py：分别是对应上述文件的单测，用unittest框架
+
+###vgg
+用tensorflow实现的vgg-16结构，全部使用3x3卷积核
 
 
 ###ResNet
@@ -33,7 +36,7 @@ tensorflow实现的ResNet
 - subsample: 降采样，用最大池
 - block中包含单元unit，一个单元是一个短连接模块
 - bottleneck：对一个神经单元前后分别加上1x1卷积，可以较少/增加维度
-- depth/bottleneck_depth：卷积个数
+- depth/bottleneck_depth：最后输出/1x1卷积层 核个数
 
 
 
