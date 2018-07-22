@@ -182,11 +182,7 @@ def inference(images):
   Returns:
     Logits.
   """
-  # We instantiate all variables using tf.get_variable() instead of
-  # tf.Variable() in order to share variables across multiple GPU training runs.
-  # If we only ran this model on a single GPU, we could simplify this function
-  # by replacing all instances of tf.get_variable() with tf.Variable().
-  # 用tf.get_variable来创建变量，这样就可以再多GPU上共享。如果只是单GPU，可以使用tf.Variable
+  # 用tf.get_variable来创建变量，这样就可以在多GPU上共享。如果只是单GPU，可以使用tf.Variable
 
   # conv1
   with tf.variable_scope('conv1') as scope:
@@ -289,7 +285,6 @@ def loss(logits, labels):
   dense_labels = tf.sparse_to_dense(concated,
                                     [FLAGS.batch_size, NUM_CLASSES],
                                     1.0, 0.0)
-  tf.shape()
   # 交叉熵
   # 这个有问题需要把参数写一下，顺序不太对
   cross_entropy = tf.nn.softmax_cross_entropy_with_logits(

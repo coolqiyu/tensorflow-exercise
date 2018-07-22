@@ -39,5 +39,9 @@ tensorflow实现的ResNet
 - depth/bottleneck_depth：最后输出/1x1卷积层 核个数
 
 
+###overfeat
+一个分类、定位、检测的统一框架
+TODO: 读一下OverFeat论文，了解一下这些任务的意义。看一下激活值，中间的结果如何
+然后还要写YOLO
 
 

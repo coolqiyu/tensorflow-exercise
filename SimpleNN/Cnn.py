@@ -16,6 +16,19 @@ W_fc1 = b_fc1 = h_pool2_flat = h_fc1_z = h_fc1 = 0
 W_fc2 = b_fc2 = 0
 
 
+"""
+same:28/2 = 14
+valid: 28-3/2+1=13.x=13
+same: 28/3=9.x=10
+valid: 28-3/3+1=9.x=9
+same: 15/2=7.x=8
+valid: 15-3/2+1=7
+same: 15/3=5
+valid: 15-3/3+1=5
+
+same: 向上求
+valid：向下求
+"""
 def pad_algorithm(x, f_shape, stride, padding):
     """
     执行padding算法
