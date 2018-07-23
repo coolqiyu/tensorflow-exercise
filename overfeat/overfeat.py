@@ -45,8 +45,9 @@ def loss(logits, labels):
     :param labels: 真实的结果
     :return:
     """
-    batch_size = len(logits)
+    batch_size = tf.shape(logits)[0]
     num_classes = 40
+    labels = tf.reshape(labels, [batch_size, 1])
     labels = tf.sparse_to_dense(labels, [batch_size, num_classes], 1, 0)
     # Computes softmax cross entropy between `logits` and `labels`
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)

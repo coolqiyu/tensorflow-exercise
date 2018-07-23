@@ -1,4 +1,4 @@
-from . import overfeat
+import overfeat
 import tensorflow as tf
 from tensorflow.python.platform import test
 from common import read_data
@@ -33,21 +33,34 @@ class OverFeatTest(test.TestCase):
             predictions = tf.argmax(logits, 1)
             self.assertEquals(predictions.get_shape().as_list(), [eval_batch_size])
 
+def augment_LFW(x, y):
+    """
+    对LFW做数据增强，裁剪成231x231的数据
+    :return:
+    """
+    augments_x = []
+    augments_y = []
+    for data_x, data_y in zip(x, y):
+        for i in range(5):
+            data = tf.random_crop(data_x, (231, 231, 3))
+            augments_x.append(data)
+            augments_y.append(data_y)
+    return tf.reshape(augments_x, [-1, 231, 231, 3]), augments_y
 
-def train_OLR():
+def train_LFW():
     num_classes = 40
     train_batch_size = 20
-    train_height, train_width = 92, 112
+    train_height, train_width = 231, 231
+    # 读取数据
+    x, y = read_data.read_lfw_data(3)
+    x, y = augment_LFW(x, y)
 
     with tf.Session() as sess:
-        x, y = read_data.read_ORL_face_data()
-        x = np.reshape(x, [len(x), train_height, train_width, 1])
-
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
 
         for i in range(1000):
             # 前向传播
-            logits, _ = overfeat.overfeat(x, num_classes)
+            logits = overfeat.overfeat(x, num_classes)
             # 计算loss函数
             cross_entropy = overfeat.loss(logits, y)
             # 反向求导，梯度下降
@@ -59,8 +72,5 @@ def train_OLR():
 
 
 
-
-
-
 if __name__ == '__main__':
-  test.main()
+    train_LFW()

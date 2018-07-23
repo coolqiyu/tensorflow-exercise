@@ -42,6 +42,8 @@ tensorflow实现的ResNet
 ###overfeat
 一个分类、定位、检测的统一框架
 TODO: 读一下OverFeat论文，了解一下这些任务的意义。看一下激活值，中间的结果如何
+TODO: 现在的数据集图片太小了，找个大的，要231x231
+
 然后还要写YOLO
 
 
