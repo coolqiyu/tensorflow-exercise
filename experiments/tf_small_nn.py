@@ -35,7 +35,6 @@ def one_layer_mnist_train():
             batch_xs, batch_ys = mnist.train.next_batch(100)
             print(sess.run([train_step, W, b, cross_entropy], feed_dict={x: batch_xs, y_: batch_ys}))
 
-
         # 下面判断测试集，应该相当于在网络后增加节点
         # 利用test数据集判断模型的结果
         # tf.equal 来检测我们的预测是否真实标签匹配(索引位置一样表示匹配)

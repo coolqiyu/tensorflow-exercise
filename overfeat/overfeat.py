@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.contrib.framework import add_arg_scope, arg_scope
 from tensorflow.contrib.layers.python.layers import utils
 trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
-
+batch_size = 10
 
 # 为什么要一层一层嵌套？有些参数对于有些操作并不需要。最后一个用arg_sc，这个是会包含前面所有的吗？
 # 为什么用l2_regulaizer来初始化weights_regularizer
@@ -35,7 +35,7 @@ def variable_init(shape):
     :param shape:
     :return:
     """
-    return tf.Variable(tf.zeros(shape))
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
 
 
 def loss(logits, labels):
@@ -45,13 +45,15 @@ def loss(logits, labels):
     :param labels: 真实的结果
     :return:
     """
-    batch_size = tf.shape(logits)[0]
-    num_classes = 40
+    num_classes = 5749
     labels = tf.reshape(labels, [batch_size, 1])
-    labels = tf.sparse_to_dense(labels, [batch_size, num_classes], 1, 0)
+    index = [[i] for i in range(batch_size)]
+    index_label = tf.concat((index, labels), 1)
+    # 最后的值要用1.0，不能用1
+    labels = tf.sparse_to_dense(index_label, [batch_size, num_classes], 1.0, 0.0)
     # Computes softmax cross entropy between `logits` and `labels`
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
-    cross_entropy = tf.reduce_mean(cross_entropy)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels, name='cross_entropy')
+    cross_entropy = tf.reduce_sum(cross_entropy, name='cross_entropy_mean')
     return cross_entropy
     # 加上weght的l2正则化
 
@@ -59,7 +61,7 @@ def loss(logits, labels):
 def overfeat(inputs,
              num_classes=1000,
              is_training=True,
-             dropout_keep_prob=0.5,
+             dropout_keep_prob=1,
              spatial_squeeze=True,
              scope='overfeat'):
     """overfeat 网络结构
@@ -78,30 +80,36 @@ def overfeat(inputs,
     """
     # end_points_collection = scope + '_end_points'
     # Collect outputs for conv2d, fully_connected and max_pool2d
-
+    conv1 = variable_init([11, 11, 3, 96])
     net = tf.nn.conv2d( #[11, 11, in_, 64] stride = 4
-      inputs, variable_init([11, 11, 3, 96]), [1, 4, 4, 1], padding='VALID', name='conv1')
+      inputs, conv1, [1, 4, 4, 1], padding='VALID', name='conv1')
     net = tf.nn.relu(net)
     net = tf.nn.max_pool(net, [1, 2, 2, 1], [1, 2, 2, 1], padding='VALID', name='pool1')
 
-    net = tf.nn.conv2d(net, variable_init([5, 5, 96, 256]), [1, 1, 1, 1], padding='VALID', name='conv2')
+    conv2 = variable_init([5, 5, 96, 256])
+    net = tf.nn.conv2d(net, conv2, [1, 1, 1, 1], padding='VALID', name='conv2')
     net = tf.nn.relu(net)
     net = tf.nn.max_pool(net, [1, 2, 2, 1], [1, 2, 2, 1], padding='VALID', name='pool2')
-    net = tf.nn.conv2d(net, variable_init([3, 3, 256, 512]), [1, 1, 1, 1], padding='SAME', name='conv3')
+    conv3 = variable_init([3, 3, 256, 512])
+    net = tf.nn.conv2d(net, conv3, [1, 1, 1, 1], padding='SAME', name='conv3')
     net = tf.nn.relu(net)
-    net = tf.nn.conv2d(net, variable_init([3, 3, 512, 1024]), [1, 1, 1, 1], padding='SAME', name='conv4')
+    conv4 = variable_init([3, 3, 512, 1024])
+    net = tf.nn.conv2d(net, conv4, [1, 1, 1, 1], padding='SAME', name='conv4')
     net = tf.nn.relu(net)
-    net = tf.nn.conv2d(net, variable_init([3, 3, 1024, 1024]), [1, 1, 1, 1], padding='SAME', name='conv5')
+    conv5 = variable_init([3, 3, 1024, 1024])
+    net = tf.nn.conv2d(net, conv5, [1, 1, 1, 1], padding='SAME', name='conv5')
     net = tf.nn.relu(net)
     net = tf.nn.max_pool(net, [1, 2, 2, 1], [1, 2, 2, 1], padding='VALID', name='pool5')
     # 接下来是3个full connect层，用conv2d来代替full connect
 
     # 这里为什么用6x6（spatial input size）？
-    net = tf.nn.conv2d(net, variable_init([6, 6, 1024, 3072]), [1, 1, 1, 1], padding='VALID', name='fc6')
+    fc6 = variable_init([6, 6, 1024, 3072])
+    net = tf.nn.conv2d(net, fc6, [1, 1, 1, 1], padding='VALID', name='fc6')
     net = tf.nn.relu(net)
     net = tf.nn.dropout(
         net, dropout_keep_prob, name='dropout6')
-    net = tf.nn.conv2d(net, variable_init([1, 1, 3072, 4096]), [1, 1, 1, 1], padding='SAME', name='fc7')
+    fc7 = variable_init([1, 1, 3072, 4096])
+    net = tf.nn.conv2d(net, fc7, [1, 1, 1, 1], padding='SAME', name='fc7')
     net = tf.nn.relu(net)
     net = tf.nn.dropout(
         net, dropout_keep_prob, name='dropout7')

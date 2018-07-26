@@ -286,7 +286,7 @@ def loss(logits, labels):
                                     [FLAGS.batch_size, NUM_CLASSES],
                                     1.0, 0.0)
   # 交叉熵
-  # 这个有问题需要把参数写一下，顺序不太对
+  # 这个有问题需要把参数写一下，顺序不太对sparse_to_dense
   cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
       logits=logits, labels=dense_labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')

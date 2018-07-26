@@ -109,7 +109,7 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   Args:
     image: 3-D Tensor of [height, width, 3] of type.float32.
     label: 1-D Tensor of type.int32
-    min_queue_examples: int32, minimum number of samples to retain
+    min_queue_examples: int32, minimum number of samrandom_cropples to retain
       in the queue that provides of batches of examples.
     batch_size: Number of images per batch.
   Returns:

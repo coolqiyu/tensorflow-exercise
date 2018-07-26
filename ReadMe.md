@@ -41,9 +41,15 @@ tensorflow实现的ResNet
 
 ###overfeat
 一个分类、定位、检测的统一框架
+LFW数据集：http://vis-www.cs.umass.edu/lfw/
+13233 images, 5749 people, 1680 people with two or more images
 TODO: 读一下OverFeat论文，了解一下这些任务的意义。看一下激活值，中间的结果如何
-TODO: 现在的数据集图片太小了，找个大的，要231x231
-
+代码问题
+- 要在结构以后初始化一下变量
+- sparse_to_dense函数的使用问题？
+- feed_dict变量不能是Tensor
+- queue的使用？
+- 结果一直是相同的？logits一直是相同的
 然后还要写YOLO
 
 
