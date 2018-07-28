@@ -1,3 +1,4 @@
+#coding:utf-8
 from PIL import Image
 
 import overfeat
@@ -7,78 +8,64 @@ from common import read_data
 import numpy as np
 from tensorflow.python import debug as tfdbg
 
-# 测试overfeat
-class OverFeatTest(test.TestCase):
-    def testTrainEvalWithReuse(self):
-        train_batch_size = 2
-        eval_batch_size = 1
-        train_height, train_width = 231, 231
-        eval_height, eval_width = 281, 281
-        num_classes = 1000
-        with self.test_session():
-            # 训练阶段
-            train_inputs = tf.Variable(tf.random_uniform(
-                [train_batch_size, train_height, train_width, 3]))
-            logits, _ = overfeat.overfeat(train_inputs)
-            self.assertListEqual(logits.get_shape().as_list(),
-                                 [train_batch_size, num_classes])
-            tf.get_variable_scope().reuse_variables()
-            # 评估阶段
-            eval_inputs = tf.random_uniform(
-                (eval_batch_size, eval_height, eval_width, 3))
-            logits, _ = overfeat.overfeat(
-                eval_inputs, is_training=False, spatial_squeeze=False)
-            self.assertListEqual(logits.get_shape().as_list(),
-                                 [eval_batch_size, 2, 2, num_classes])
-            # 评估获得正确率
-            logits = tf.reduce_mean(logits, [1, 2])
-            predictions = tf.argmax(logits, 1)
-            self.assertEquals(predictions.get_shape().as_list(), [eval_batch_size])
-
 
 num_classes = 5749
-train_batch_size = 10
+train_batch_size = 50
 train_height, train_width = 231, 231
+train_channel = 3
 
-def get_inputs():
+def get_inputs(n):
     """
-    对LFW做数据增强，裁剪成231x231的数据
+    获取输入
     :return:
     """
-    filenames = read_data.get_lfw_paths() #[index, path]
+    labels, filenames = read_data.get_lfw_paths(n) #[index, path]
     # 文件名的queue，已经包含了enqueue_many操作，已经定义了一个queue runner处理enqueue操作
-    filenames_queue = tf.train.string_input_producer(filenames)
+    filenames_queue = tf.train.string_input_producer(filenames, shuffle=False)
+    labels_queue = tf.train.input_producer(labels, shuffle=False)
+    # filename = filenames_queue.dequeue()
     # 从queue中dequeue一个文件名，并读取数据
-    filename = filenames_queue.dequeue()
-    with Image.open(filename) as f:
-        image = np.array(f).astype(np.float32)
+    reader = tf.WholeFileReader()
+    filename, image = reader.read(filenames_queue)
+    label = labels_queue.dequeue()
+    # 解码数据
+    #  tf.image.decode_jpeg对图片进行解码，如果用decode_raw结果是不一样的
+    image = tf.image.decode_jpeg(image)
+    image = tf.cast(image, tf.float32)
+    image = tf.reshape(image, [250, 250, train_channel])
+    image = tf.random_crop(image, [train_height, train_width, train_channel])
+    label = tf.cast(label, tf.int32)
     # 创建一个shuffle queue，并添加enqueue以及dequeue操作
-    images, label_batch = tf.train.shuffle_batch(
+    images, labels = tf.train.shuffle_batch(
         [image, label],
         batch_size=train_batch_size,
-        num_threads=2,
+        num_threads=1,
         capacity=2 + 3 * train_batch_size,
-        min_after_dequeue=2
+        min_after_dequeue=0
     )
-    return images, label_batch
+    return images, labels
+    #return filename, image, label
 
 def train_LFW():
     # 读取数据
-    x, labels = get_inputs()
+    images, labels = get_inputs()
+    coord = tf.train.Coordinator()
     with tf.Session() as sess:
         #sess = tfdbg.LocalCLIDebugWrapperSession(sess)
         # 设置输入数据
         # 前向传播
-        logits = overfeat.overfeat(x, num_classes)
+        logits, fc8 = overfeat.overfeat(images, num_classes)
         # 计算loss函数
-        cross_entropy = overfeat.loss(logits, labels)
+        labels, cross_entropy  = overfeat.loss(logits, labels)
         # 反向求导，梯度下降
         train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
         sess.run(tf.global_variables_initializer())
-        tf.train.start_queue_runners(sess=sess)
+        qrs = tf.train.start_queue_runners(sess=sess, coord=coord)
         for i in range(1000):
-            logits_,_ = sess.run([logits, train_step])
-            print(logits_)
+            cross_entropy_ , _ = sess.run([cross_entropy, train_step])
+            print(cross_entropy_)
+        coord.request_stop()
+        coord.join(qrs)
 
 
 if __name__ == '__main__':

@@ -70,12 +70,12 @@ def train():
     # 获取训练的数据集和label
     images, labels = cifar10.distorted_inputs()
 
-    # inference构建训练网络，logits为结果
+    # 前向传播，inference构建训练网络，logits为结果
     logits = cifar10.inference(images)
 
     # loss函数
     loss = cifar10.loss(logits, labels)
-
+    # 优化目标，梯度下降求解
     train_op = cifar10.train(loss, global_step)
 
     # 创建一个saver，第一个参数是要保存的参数列表

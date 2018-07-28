@@ -43,13 +43,15 @@ tensorflow实现的ResNet
 一个分类、定位、检测的统一框架
 LFW数据集：http://vis-www.cs.umass.edu/lfw/
 13233 images, 5749 people, 1680 people with two or more images
-TODO: 读一下OverFeat论文，了解一下这些任务的意义。看一下激活值，中间的结果如何
 代码问题
 - 要在结构以后初始化一下变量
-- sparse_to_dense函数的使用问题？
+- sparse_to_dense函数的使用
 - feed_dict变量不能是Tensor
-- queue的使用？
-- 结果一直是相同的？logits一直是相同的
-然后还要写YOLO
+- queue的使用：作为输入
+- 结果一直是相同的：所有weight都初始化为0导致
+- 使用string_input_producer等queue时，遇到报错，图中没有该node：变量名写错
+- tf.string_split([filename], '\\') 第一个参数要放在[]，不能直接用filename
+- 输入的问题：使用的是jpg格式，图像和对应的分类不能直接读取：使用两个queue，一个读图，一个读分类
+- ERROR:tensorflow:Exception in QueueRunner: Session has been closed; Skipping cancelled enqueue attempt with queue not closed：增加Coordinator来协调
 
 

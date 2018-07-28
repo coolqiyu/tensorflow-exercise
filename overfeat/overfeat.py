@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.contrib.framework import add_arg_scope, arg_scope
 from tensorflow.contrib.layers.python.layers import utils
 trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
-batch_size = 10
+batch_size = 50
 
 # 为什么要一层一层嵌套？有些参数对于有些操作并不需要。最后一个用arg_sc，这个是会包含前面所有的吗？
 # 为什么用l2_regulaizer来初始化weights_regularizer
@@ -35,7 +35,7 @@ def variable_init(shape):
     :param shape:
     :return:
     """
-    return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.01))
 
 
 def loss(logits, labels):
@@ -54,7 +54,7 @@ def loss(logits, labels):
     # Computes softmax cross entropy between `logits` and `labels`
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels, name='cross_entropy')
     cross_entropy = tf.reduce_sum(cross_entropy, name='cross_entropy_mean')
-    return cross_entropy
+    return labels, cross_entropy
     # 加上weght的l2正则化
 
 
@@ -113,9 +113,10 @@ def overfeat(inputs,
     net = tf.nn.relu(net)
     net = tf.nn.dropout(
         net, dropout_keep_prob, name='dropout7')
+    fc8 = variable_init([1, 1, 4096, num_classes])
     net = tf.nn.conv2d(
         net,
-        variable_init([1, 1, 4096, num_classes]), [1, 1, 1, 1],
+        fc8, [1, 1, 1, 1],
         padding='SAME',
         name='fc8')
     # 最后一层不用relu激活
@@ -127,4 +128,4 @@ def overfeat(inputs,
     #     net = tf.squeeze(net, [1, 2], name='fc8/squeezed')
     #     end_points[scope + '/fc8'] = net
 
-    return net
+    return net, fc8
