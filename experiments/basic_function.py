@@ -213,7 +213,26 @@ def fetch():
         print(a)
         print(b)
 
+
+def softmax_cross_entropy():
+    label = [[1]]
+    index = [[0]]
+    index_label = tf.concat([index, label], 1)
+    index_label = tf.sparse_to_dense(index_label, [1, 3], 1., 0.)
+    logits = [[0.1, 1., 0.1]]
+
+    cross_entropy = tf.nn.softmax(logits) #1
+    cross_entropy = tf.log(cross_entropy) * index_label#2
+    cross_entropy = -tf.reduce_sum(cross_entropy)#3
+    cross_entropy_softmax = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=index_label)#1, 2
+    cross_entropy_softmax = tf.reduce_sum(cross_entropy_softmax)# 3
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        print(sess.run(cross_entropy_softmax))
+        print(sess.run(cross_entropy))
+
 if __name__ == "__main__":
+    softmax_cross_entropy()
     # fetch()
     # myslice()
     #my_decode_raw()
@@ -248,4 +267,4 @@ if __name__ == "__main__":
 # tf.train.ExponentialMovingAverage
 # exponential_decay 学习率衰减
 # softmax_cross_entropy_with_logits这个！
-    my_name_scope()
+    #my_name_scope()

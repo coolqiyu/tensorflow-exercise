@@ -64,26 +64,28 @@ def read_lfw_data(end = 9999999):
                 labels.append(index + 1)
     return images, labels
 
-def get_lfw_paths(end = 1):
+def get_lfw_paths(end = None, change = True):
     """
     读取lfw数据，jpg格式
     :return:[类index, 路径]
     """
-    path = "./dataset/lfw/lfw"
+    path = "../dataset/lfw/lfw"
     # 列出path下的所有文件名
     s_names = os.listdir(path)
     filenames = []
     labels = []
     for s_index, s_name in enumerate(s_names):
-        if s_index == end:
+        if end is not None and s_index == end:
             break
         s_path = os.path.join(path, s_name)
         data_names = os.listdir(s_path)
         for d_index, data_name in enumerate(data_names):
             # 把文件名改掉
             data_path = os.path.join(s_path, data_name)
-            new_data_path = os.path.join(s_path, str(d_index) + '_' + str(s_index + 1) + '.jpg')
-            os.rename(data_path, new_data_path)
+            new_data_path = os.path.join(s_path, str(d_index) + '_' + str(s_index) + '.jpg')
+
+            if change:
+                os.rename(data_path, new_data_path)
             filenames.append(new_data_path)
             labels.append(s_index)
     return labels, filenames
